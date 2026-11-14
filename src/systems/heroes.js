@@ -158,6 +158,16 @@ export class Heroes {
     if (G.fx) { G.fx.ring(this.centre(), H.color, 0.4, 5, 0.6); G.fx.spark(this.centre(), H.color, 30, 7, 0.6, 0.16); }
     this.hud.style.display = 'block'; this.cross.style.display = 'block';
     if (G.villains) G.villains.heroOn();
+    // the first time as Strand: how swinging works, and where to try it
+    if (id === 'strand' && !o.swap && !o.keep && !G.state.done.swingTip) {
+      G.state.done.swingTip = true;
+      this.later(2.6, () => G.ui.openMenu({ title: 'Swinging, in four moves', who: 'Strand · web-slinging acrobat',
+        html: '<p><b>Hold Space</b> to jump and swing from a line to the building ahead; keep holding and the next line goes out by itself.</p><p><b>Let go on the way up</b> out of a swing for a boost and a flip: the later in the rise, the bigger it is.</p><p><b>A / D</b> steer the swing, <b>Shift</b> in the air zips you forward, <b>C</b> dives.</p><p>Swing into a wall to run up it; hold <b>W</b> to keep running and vault the top.</p><p style="color:var(--dim)">The Swing Course downtown has rings, a clock and medals.</p>',
+        options: [
+          { label: 'Show me the Swing Course', desc: 'Sets a route to its start', onPick: () => { const c = G.swingCourse; if (c && G.metro.setRoute) { try { G.metro.setRoute(-96, -170, G.player.pos); } catch { /* no route */ } G.ui.toast('Route set to the Swing Course, downtown north of the park.', 'info'); } } },
+          { label: 'Got it', onPick: () => {} },
+        ] }));
+    }
     if (!this.clipCache && !matchMedia('(prefers-reduced-motion: reduce)').matches) this.clipCache = ['kurozan', 'dragon', 'vektor', 'shade'].map((c) => { const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = `${import.meta.env.BASE_URL}video/${c}.mp4`; v.load(); return v; });   // the villain clips, loaded ahead of time
     G.ui.setHelp && G.ui.setHelp();
   }
@@ -475,11 +485,14 @@ export class Heroes {
       const Lmax = qy - floor - H - 1.2;
       if (Lmax < 7) continue;
       const Lr = Math.min(L, Lmax), ang = Math.atan2(fwd, up), al = Math.abs(lat);
+      const bottom = qy - Math.min(L * 0.93, Lmax) - H - floor;              // where the feet will be at the bottom of this arc, above the street
       let sc = -Math.abs(ang - 0.65) * 9                                      // about 35-40 degrees ahead of straight up: a long, fast arc
         - Math.abs(i) * 0.22 * 5                                              // close to the heading
         - Math.abs(Lr - (26 + hs * 0.35)) * 0.12                              // longer lines at speed
         - (L - Lr) * 0.3                                                      // a line that has to reel in a lot is a worse line
-        - Math.max(0, 2.5 - al) * 1.2 - Math.max(0, al - 14) * 0.5;          // to the side, not straight into a wall
+        - Math.max(0, 2.5 - al) * 1.2 - Math.max(0, al - 14) * 0.5           // to the side, not straight into a wall
+        - Math.abs(bottom - 5) * 0.22;                                        // arcs that swoop down to about 5 m over the street: without this every swing
+                                                                              // gains height and you end up cruising far above the street (the games keep you low)
       if (side && Math.sign(lat) === side) sc += 3.5;
       if (sc > bs) { bs = sc; best = { a: new THREE.Vector3(qx, qy, qz), L, Lmax, side: lat >= 0 ? 1 : -1 }; }
     }
@@ -573,7 +586,8 @@ export class Heroes {
     p.tiltT = { x: clamp(Math.atan2(fwd, up) * 0.85, -1, 1), z: clamp(Math.atan2(lat, up) * 0.7, -0.6, 0.6) };
     p.rig.swing = { side: mv.side, ph: mv.ph }; p.anim = 'webswing';
     // keep holding: past the rise (or as it runs out of speed) the next line goes out by itself
-    if (mv.t > 0.3 && mv.ph > 0.2 && (mv.ph >= 0.97 || p.vel.y < 1.5)) { this.letGo(false); if (inp.down('Space')) this.startSwing(true); }
+    // (and a swing that has gone on too long, curling round its anchor like a tetherball, hands over too)
+    if (mv.t > 0.3 && ((mv.ph > 0.2 && (mv.ph >= 0.97 || p.vel.y < 1.5)) || mv.t > 2.2)) { this.letGo(false); if (inp.down('Space')) this.startSwing(true); }
   }
   // off the line, keeping the speed. Let go yourself on the way up out of the arc for a boost; the
   // later in the rise (before the line would go by itself), the bigger it is.
@@ -645,7 +659,9 @@ export class Heroes {
     const tx = n.z, tz = -n.x;   // along the wall, to the right as you face it
     p.pos.y += (up * 6 * fast + run) * dt; p.pos.x += tx * side * 4 * fast * dt; p.pos.z += tz * side * 4 * fast * dt;
     // the run up the wall: held by W at a steady pace, otherwise it slows to a climb
-    if (run > 0 || (up > 0 && this.id === 'strand' && mv.t < 0.2)) mv.run = up > 0 && this.id === 'strand' ? Math.max(Math.min(8, run + 40 * dt), run - 6 * dt) : Math.max(0, run - 16 * dt);
+    // (W holds it only for the first 1.6 s: players hold W while swinging, and brushing a 200 m tower must not run them up all of it)
+    const hold = up > 0 && this.id === 'strand' && mv.t < 1.6;
+    if (run > 0 || (hold && mv.t < 0.2)) mv.run = hold ? Math.max(Math.min(8, run + 40 * dt), run - 6 * dt) : Math.max(0, run - 16 * dt);
     p.rig.climbPh = (p.rig.climbPh || 0) + (Math.abs(up) + Math.abs(side) + (run > 0 ? 2.5 : 0)) * dt * 7;
     p.yaw = Math.atan2(-n.x, -n.z); p.vel.set(0, 0, 0);
     const d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, -n.x, 0, -n.z, 2.5);

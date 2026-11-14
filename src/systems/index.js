@@ -30,6 +30,7 @@ import { StreetTaxi } from './streettaxi.js';
 import { Stadium } from './stadium.js';
 import { Climbing } from './climb.js';
 import { SkylineRun } from './parkour.js';
+import { SwingCourse } from './swingcourse.js';
 import { BotArena } from './botarena.js';
 import { OrbitalLift } from './orbital.js';
 import { Story } from './story.js';
@@ -88,6 +89,7 @@ export function initSystems() {
   G.streetTaxi = new StreetTaxi();
   G.climbing = new Climbing();
   G.parkour = new SkylineRun();
+  G.swingCourse = new SwingCourse();
   G.bots = new BotArena();
   G.orbital = new OrbitalLift();
   G.story = new Story();
@@ -147,6 +149,7 @@ export function updateSystems(dt, prof) {
   G.streetTaxi.update(dt, t);
   G.stadium.update(dt);
   G.parkour.update(dt);
+  G.swingCourse.update(dt);
   G.bots.update(dt);
   G.orbital.update(dt);
   G.story.update(dt);
