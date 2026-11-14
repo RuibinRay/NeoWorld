@@ -37,18 +37,22 @@ export class Crowd {
     mesh.setMatrixAt(i, this.m); mesh.setColorAt(i, color);
   }
   // colors: { top, bottom, skin, arm, hair (or null) } as THREE.Color; w = build (shoulder width)
-  add(pos, yaw, scale, colors, anim, phase, w = 1) {
+  // fall: how far over backwards they are (0 upright, about 1.45 lying flat), for anyone knocked down
+  add(pos, yaw, scale, colors, anim, phase, w = 1, fall = 0) {
     if (this.n >= MAX) return;
     const i = this.n++;
     let hips = 0.93, leg = 0, swing = 0, armX = 0, armZ = 0.07, lean = 0;
-    if (anim === 'walk') { swing = Math.sin(phase) * 0.5; armX = swing * 0.8; hips += Math.cos(phase * 2) * 0.012; }
+    if (anim === 'down') { armZ = 0.6; armX = -0.2; }                       // flat on their back, arms out
+    else if (anim === 'walk') { swing = Math.sin(phase) * 0.5; armX = swing * 0.8; hips += Math.cos(phase * 2) * 0.012; }
     else if (anim === 'jog' || anim === 'run') { swing = Math.sin(phase) * 0.85; armX = swing * 0.8; lean = 0.16; hips += Math.cos(phase * 2) * 0.025; }
     else if (anim === 'sit' || anim === 'eat' || anim === 'faint') { hips = anim === 'faint' ? 0.34 : 0.56; leg = -1.45; armX = -0.4; }
     else if (anim === 'taichi') { armZ = 1.5 + Math.sin(phase * 2) * 0.4; swing = Math.sin(phase * 2) * 0.2; hips += Math.abs(Math.sin(phase * 2)) * 0.04; }
     else if (anim === 'dance') { const b = Math.abs(Math.sin(phase * 2)); armX = -0.5 - b * 1.6; armZ = 0.25 + Math.sin(phase) * 0.35; swing = Math.sin(phase * 2) * 0.12; hips += b * 0.06; lean = -0.05 + b * 0.08; }   // bouncing, arms pumping up
     else if (anim === 'talk' || anim === 'wave') armX = -0.6;
     else if (anim === 'tend' || anim === 'work') { lean = 0.45; armX = -1.0; }
-    this.q.setFromAxisAngle(this.up, yaw); this.s.set(scale, scale, scale); this.base.compose(pos, this.q, this.s);
+    if (fall) { this.e.set(-fall, yaw, 0, 'YXZ'); this.q.setFromEuler(this.e); this.e.order = 'XYZ'; this.v.set(pos.x, pos.y + 0.12 * Math.min(1, fall / 1.45), pos.z); }
+    else { this.q.setFromAxisAngle(this.up, yaw); this.v.copy(pos); }
+    this.s.set(scale, scale, scale); this.base.compose(this.v, this.q, this.s);
     const ly = Math.cos(lean), lz = Math.sin(lean);                 // where the shoulders and head end up when leaning
     this.part(this.torso, i, 0, hips, 0, lean, 0, colors.top, w);
     this.part(this.head, i, 0, hips + 0.8 * ly, 0.8 * lz, lean, 0, colors.skin);

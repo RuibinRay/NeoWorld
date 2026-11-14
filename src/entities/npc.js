@@ -26,6 +26,9 @@ class NPC {
   constructor(def, sys) {
     this.def = def; this.sys = sys; this.id = def.id; this.name = def.name; this.job = def.job; this.lines = def.lines || [];
     this.android = !!def.android; this.child = !!def.child; this.body = def.body || 'humanoid'; this.role = def.role || null; this.talk = !!def.talk;
+    // in a fight (Hero Mode): about a quarter of adults fight back; androids and children never do
+    this.fighter = !this.child && !this.android && hash(def.id + ':fight') % 100 < 27;
+    this.hp = null; this.dead = null; this.outUntil = null; this.provoked = -99;
     this.friends = def.friends || []; this.partner = def.partner || null; this.zone = def.zone || null; // zone: lives in an outer district
     this.rng = new RNG(hash(def.id));
     this.plan = def.plan.map((e) => ({ t: e[0], act: e[1], at: e[2], face: e[3] })).sort((a, b) => a.t - b.t);
@@ -103,6 +106,8 @@ class NPC {
     const env = G.env;
     this.mood = clamp((env.rain > 0.4 && !this.android && !this.inside ? -0.3 : 0.1) + (env.hour > 23 || env.hour < 5 ? -0.15 : 0) + this.moodBoost, -1, 1);
     if (this.moodT > 0) this.moodT -= dt;
+    // taken away by the medics: home until the next day comes round
+    if (this.outUntil !== null) { if (G.env.day >= this.outUntil) this.outUntil = null; else { this.inside = true; return; } }
     const e = this.entryAt(mins), act = this.effective(e);
     if (e !== this.entry || act !== this.act) { this.entry = e; this.act = act; this.interrupt(); }
     if (this.hold) { if (this.hold.until()) this.hold = null; return; }
@@ -256,7 +261,7 @@ class NPC {
   move(dt) {
     this.speedNow = 0;
     if (this.inside || this.converse || this.chat || this.doing || this.hold) return;
-    if (this.react) { if (this.react.fall) { this.fallStep(dt, this.react.fall); return; } if (this.react.flee) { this.pos.x += this.react.flee[0] * 4.4 * dt; this.pos.z += this.react.flee[1] * 4.4 * dt; this.yaw = dampAngle(this.yaw, Math.atan2(this.react.flee[0], this.react.flee[1]), 12, dt); this.speedNow = 4.4; G.colliders.resolveCircle(this.pos, 0.3, this.pos.y + 0.55, this.pos.y + 1.6); if (!this.zone) this.pos.y = terrainY(this.pos.x, this.pos.z); } return; }
+    if (this.react) { if (this.react.fall) { this.fallStep(dt, this.react.fall); return; } if (this.react.fight) { this.fightStep(dt); return; } if (this.react.flee) { this.pos.x += this.react.flee[0] * 4.4 * dt; this.pos.z += this.react.flee[1] * 4.4 * dt; this.yaw = dampAngle(this.yaw, Math.atan2(this.react.flee[0], this.react.flee[1]), 12, dt); this.speedNow = 4.4; G.colliders.resolveCircle(this.pos, 0.3, this.pos.y + 0.55, this.pos.y + 1.6); if (!this.zone) this.pos.y = terrainY(this.pos.x, this.pos.z); } return; }
     let tx, tz;
     if (this.direct) { tx = this.direct.x; tz = this.direct.z; }
     else if (this.path) {
@@ -282,10 +287,27 @@ class NPC {
     if (this.chat) this.chat.t = 99;                                 // the conversation ends
     if (this.doing || this.path || this.direct || this.seat) this.interrupt();
     const f = this.react && this.react.fall;
-    if (f) { f.vx += vx; f.vz += vz; f.vy = Math.max(f.vy, vy); f.lie = 0; f.up = 0; return; }
+    if (f) { f.vx += vx; f.vz += vz; f.vy = Math.max(f.vy, vy); f.lie = 0; f.up = 0; if (this.dead) f.dead = true; return; }
     this.yaw = Math.atan2(-vx, -vz);                                  // facing whoever hit them, so they go over backwards
-    this.react = { anim: 'air', t: 99, fall: { vx, vz, vy, y: 0.05, ang: 0, lie: 0, up: 0, wrapped } };
+    this.react = { anim: 'air', t: 99, fall: { vx, vz, vy, y: 0.05, ang: 0, lie: 0, up: 0, wrapped, dead: !!this.dead } };
     this.feel(this.android ? 'alarm' : 'surprised', 9); this.speedNow = 0;
+  }
+  // A hero's hit hurts: adults have 60 health (androids 80), and at none they go down for good. Children
+  // are never hurt this way: they are only knocked over. Returns true if this hit was the last.
+  harm(dmg) {
+    if (this.child || this.dead || !(dmg > 0)) return false;
+    if (this.hp === null) this.hp = this.android ? 80 : 60;
+    this.hp -= dmg;
+    if (this.hp > 0) return false;
+    this.dead = { at: G.elapsed }; if (this.chat) this.chat.t = 99;
+    return true;
+  }
+  // after a while the city's medics take them away; they are home again the next day
+  carryOff() {
+    if (this.isNear && G.fx) { G.fx.ring(this.pos.clone().setY(this.pos.y + 0.1), '#7dff9c', 0.3, 1.6, 0.6); G.fx.spark(this.pos.clone().setY(this.pos.y + 0.4), '#e8fbff', 8, 2, 0.5, 0.08, -1); }
+    this.react = null; this.dead = null; this.hp = null; this.provoked = -99; this.faceYaw = null;
+    this.path = null; this.direct = null; this.doing = null; this.node = G.nav.get(this.home); this.inside = true; this.away = false;
+    this.outUntil = G.env.day + 1;
   }
   fallStep(dt, f) {
     const air = f.y > 0 || f.vy > 0;
@@ -295,11 +317,41 @@ class NPC {
     G.colliders.resolveCircle(this.pos, 0.3, this.pos.y + 0.3, this.pos.y + 1.2);
     this.pos.y = this.zone ? this.node.y : terrainY(this.pos.x, this.pos.z);
     f.ang = Math.min(1.45, f.ang + dt * 5);
+    if (f.dead) { if (!air) f.lie += dt; this.react.anim = 'down'; this.react.t = 99; if (f.lie > 20) this.carryOff(); return; }   // down for good: still, until the medics come
     if (!air) { f.lie += dt; if (f.lie > 1.2 + f.wrapped) f.up += dt; }
     this.react.anim = f.up > 0 ? 'land' : 'air';
     if (f.up > 0.6) {
+      // a fighter the hero just hit gets up and comes at them; everyone else runs
+      if (this.fighter && G.elapsed - this.provoked < 20 && G.heroes && G.heroes.alive) { this.startFight(); return; }
       const l = Math.hypot(f.vx, f.vz) > 0.01 ? Math.hypot(f.vx, f.vz) : 1, ux = f.vx / l || -Math.sin(this.yaw), uz = f.vz / l || -Math.cos(this.yaw);
       this.react = { anim: 'run', t: 4.5, flee: [ux, uz] }; this.cool.flee = 10; this.feel('annoyed', 10);
+    }
+  }
+  // fighting back: run at the hero and throw punches, for up to 15 s or until they get away
+  startFight() {
+    if (this.doing || this.path || this.direct || this.seat) this.interrupt();
+    this.react = { anim: 'run', t: 15, fight: { cd: 0.4, swing: 0, alt: false } }; this.feel('annoyed', 15);
+    if (this.isNear) G.ui.say(this, this.rng.pick(['You want a fight? Come on!', 'Hero or not, that was out of line!', 'Get over here!', 'I\'m not running from you!']), 2.4);
+  }
+  fightStep(dt) {
+    const f = this.react.fight, p = G.player, H = G.heroes;
+    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz) || 0.01;
+    if (!H || !H.alive || p.state === 'drive' || p.state === 'ride' || d > 35 || Math.abs(p.pos.y - this.pos.y) > 4) {   // the hero got away: walk it off
+      this.react = { anim: 'run', t: 2, flee: [-dx / d, -dz / d] }; return;
+    }
+    this.yaw = dampAngle(this.yaw, Math.atan2(dx, dz), 12, dt);
+    f.cd -= dt; f.swing = Math.max(0, f.swing - dt);
+    if (d > 1.25) {
+      const sp = 5.2; this.pos.x += (dx / d) * sp * dt; this.pos.z += (dz / d) * sp * dt; this.speedNow = sp;
+      G.colliders.resolveCircle(this.pos, 0.3, this.pos.y + 0.55, this.pos.y + 1.6); this.pos.y = this.zone ? this.node.y : terrainY(this.pos.x, this.pos.z);
+      this.react.anim = f.swing > 0 ? (f.alt ? 'punchL' : 'punchR') : 'run';
+      return;
+    }
+    this.speedNow = 0; this.react.anim = f.swing > 0 ? (f.alt ? 'punchL' : 'punchR') : 'guard';
+    if (f.cd <= 0) {   // a punch: a little damage and a shove, nothing a hero cannot take
+      f.cd = 0.9 + this.rng.next() * 0.6; f.swing = 0.28; f.alt = !f.alt;
+      H.hurt(5, new THREE.Vector3(dx / d, 0, dz / d), { knock: 3, kind: 'blunt' });
+      if (this.isNear && this.rng.chance(0.3)) G.ui.say(this, this.rng.pick(['Take that!', 'Had enough?', 'Come on!']), 1.6);
     }
   }
   animName() {
@@ -312,7 +364,8 @@ class NPC {
     if (this.body !== 'humanoid') return this.machine(dt, t);
     const anim = this.animName();
     this.phase += anim === 'dance' || anim === 'taichi' ? dt * 3 : dt * (this.speedNow / 1.5) * TAU;
-    crowd.add(this.pos, this.yaw, this.scale, this.col, anim, this.phase, this.build);
+    const fall = this.react && this.react.fall, tip = fall ? fall.ang * (fall.up > 0 ? Math.max(0, 1 - fall.up / 0.6) : 1) : 0;   // knocked over: drawn tipped back, as up close
+    crowd.add(this.pos, this.yaw, this.scale, this.col, tip > 1 ? 'down' : anim, this.phase, this.build, tip);
     this.extras(dt, t);
   }
   machine(dt, t) {
@@ -412,6 +465,21 @@ export class NPCSystem {
     return p;
   }
   spark(pos, t) { this.sparkOn = 0.12; const m = this.sparkMesh; m.visible = Math.sin(t * 47) > -0.2; m.position.set(pos[0] + Math.sin(t * 31) * 0.15, pos[1] + Math.cos(t * 23) * 0.1, pos[2]); m.scale.setScalar(0.6 + Math.abs(Math.sin(t * 61)) * 1.2); }
+  // The street reacts to the hero hurting someone at `at`: fighters close by come at the hero, everyone
+  // else runs from them (further when someone went down for good). Children always run.
+  panic(at, victim, killed) {
+    const p = G.player.pos, R = killed ? 32 : 18; let shouted = 0;
+    for (const n of this.near) {
+      if (n === victim || n.inside || n.body !== 'humanoid' || n.hold || n.converse || n.dead || (n.react && (n.react.fall || n.react.fight))) continue;
+      const d = Math.hypot(n.pos.x - at.x, n.pos.z - at.z); if (d > R || Math.abs(n.pos.y - at.y) > 4) continue;
+      if (n.fighter && d < 12 && G.heroes && G.heroes.alive && (killed || n.rng.chance(0.55))) { n.provoked = G.elapsed; n.startFight(); continue; }
+      if (n.react && n.react.flee && n.react.t > 2) continue;
+      if (n.doing || n.path || n.direct || n.seat || n.chat) { if (n.chat) n.chat.t = 99; n.interrupt(); }
+      const dx = n.pos.x - p.x, dz = n.pos.z - p.z, l = Math.hypot(dx, dz) || 1;
+      n.react = { anim: 'run', t: killed ? 7 + n.rng.next() * 3 : 4 + n.rng.next() * 2, flee: [dx / l, dz / l] }; n.cool.flee = 12; n.feel(n.android ? 'alarm' : 'surprised', 10);
+      if (n.isNear && shouted < 2 && n.rng.chance(0.5)) { shouted++; G.ui.say(n, n.android ? 'Emergency logged. Clear the area.' : n.child ? 'Mum!' : n.rng.pick(killed ? ['Somebody call the medics!', 'Run!', 'Oh no, no, no!'] : ['Hey, stop that!', 'Run!', 'Get away from them!']), 2.2); }
+    }
+  }
   // Word gets around: a resident's friends hear how you treated them, a little later.
   gossip(npc, delta, what) {
     for (const id of npc.friends) this.pending.push({ to: id, from: npc.name, delta: delta * 0.35, what, at: G.elapsed + 40 + this.rng.next() * 90 });

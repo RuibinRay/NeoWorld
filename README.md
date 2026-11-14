@@ -650,9 +650,16 @@ leaves until next time.
 settle; strong hits start fires with smoke. A city repair drone comes to each damaged spot after
 45 s, welds, and the damage and debris are gone. Buildings never collapse (at this map size that
 would cost far too much). **Residents** caught by a hit are knocked over backwards, lie a moment,
-get up and run; there are no injuries shown. Hitting residents yourself costs standing with them
-and their friends, and the Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for
-damaging property outside a fight with villains).
+get up and run. A hero's own hits hurt them: an adult has 60 health (an android 80), and one who
+takes enough goes down for good and lies still (no blood) until the city medics take them away
+after 20 s; they are home again the next day, so nobody's story or schedule is lost. **Children are
+never hurt this way**: whatever hits them, they are only knocked over, and they always run. About a
+quarter of adults are fighters: hit one, or hurt someone near one, and they come at you throwing
+punches (5 damage each) until you knock them down or get more than 35 m away. Everyone else nearby
+panics and runs, further when someone has gone down. Villains' hits only ever knock people over.
+Hitting residents costs standing with them and their friends (much more when they go down), and the
+Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for damaging property outside a
+fight with villains).
 
 **The second wave of heroes** (added the same day; each also has a Higgsfield portrait):
 
