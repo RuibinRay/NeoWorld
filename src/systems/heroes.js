@@ -1320,6 +1320,7 @@ export class Heroes {
     p.state = 'busy'; p.busyAnim = 'faint'; p.vel.set(0, 0, 0);
     G.ui.flash('KNOCKED OUT', 2.5); G.ui.toast(`${this.H.name} is down. The Hero Hall medics will patch you up.`, 'warn');
     if (G.villains) G.villains.heroDown();
+    if (G.wanted && G.wanted.stars) { G.wanted.clear(); if (G.events) G.events.lost(); }   // the patrol stands down once you are out
     if (G.music) G.music.sting('lose');
   }
   revive() {

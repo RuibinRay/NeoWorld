@@ -8,6 +8,7 @@ import { Economy } from './economy.js';
 import { Food } from './food.js';
 import { Jobs } from './jobs.js';
 import { Events } from './events.js';
+import { Wanted } from './wanted.js';
 import { Transit } from './transit.js';
 import { Garage } from './garage.js';
 import { Racing } from './racing.js';
@@ -68,6 +69,7 @@ export function initSystems() {
   G.food = new Food();
   G.jobs = new Jobs();
   G.events = new Events();
+  G.wanted = new Wanted();
   G.transit = new Transit();
   G.garage = new Garage();
   G.racing = new Racing();
@@ -159,6 +161,7 @@ export function updateSystems(dt, prof) {
   G.phone.update(dt);
   G.heroes.update(dt, t); G.villains.update(dt, t); G.combat.update(dt); G.damage.update(dt, t); G.fx.update(dt);
   G.events.update(dt, t);
+  G.wanted.update(dt, t);
   G.audio.update(dt);
   G.music.update(dt); G.voice.update(dt);
   if (prof) prof.systems = (prof.systems || 0) + performance.now() - t0;
