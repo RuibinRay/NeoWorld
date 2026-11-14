@@ -104,7 +104,10 @@ Number keys pick menu options. `H` hides the control hints. While piloting a dro
 - **Higgsfield:** the Higgsfield connector can only read (balance, models, past generations), but
   the Higgsfield API, with your API key, generates images: eleven pictures for Hero Mode, adverts
   and the framed print were made with it on 13 November 2026 (see "Artwork"). The key is never
-  stored in this folder or in the game: the docs warn against putting it in browser code. 3D
+  stored in this folder or in the game: the docs warn against putting it in browser code.
+  `tools/higgsfield.mjs` calls the API with a key read from the `HF_API_KEY_ID` and
+  `HF_API_KEY_SECRET` environment variables: `node tools/higgsfield.mjs check` tests the key for
+  free, and `image "<prompt>" out.jpg` makes one Soul picture (billed to your API balance). 3D
   models are not something it makes; GLB models you make elsewhere could be dropped in later.
 - Characters are stylized, not realistic. They now have shaped bodies with continuous limbs, faces with eyes that glance, brows, a nose, lips that move when speaking, layered clothing and hands, but no cloth simulation, no individual fingers and no recorded voices.
 - Residents browse the shops but do not buy anything or use the shop seats; clerks never leave the counter. Hearth, Aurum Table, the House of Old Things and the market stalls stay open-air. The Lumen Exchange is an office tower with no interior.
@@ -576,7 +579,12 @@ where you are going: about 35° ahead of straight up, off to one side so you wea
 the street (the line reels in to keep about a metre of air under you). The swing is a pendulum on a
 rope, bent for fun: gravity is heavier on the line for a snappy arc, the bottom of each arc adds
 speed, the sideways pull toward the anchor is turned back to your heading so you run straight down
-the street, and walls close beside you push you back to the middle. Speed you bring in (a fall, a
+the street, and walls within 6 m push you back to the middle. The line is drawn to the building, but
+the swing pivots on a point above your path (a true pendulum bottoms out under its anchor, at the
+wall); close to a wall, the next line goes to the far side. On a downtown street this keeps you about
+15 m from the nearest wall on average. The line flies out from the hand, droops while slack and snaps
+straight under your weight (a bright core with a teal glow). Landing fast (over 15 m/s, or hard)
+turns into a forward roll that keeps 12 m/s and comes out running. Speed you bring in (a fall, a
 dive) is turned along the arc instead of lost. Off the line your speed carries through the air and
 the keys only turn it; you run out of it when you land. Letting go late in the rise is the skill:
 on a 6 s run down a Midtown street holding Space chains five lines and covers 154 m, and timing the

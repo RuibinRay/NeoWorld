@@ -91,10 +91,13 @@ export class Player {
       // a hero on a line hangs along it (Hero Mode sets tiltT each frame it wants a tilt; it eases back to upright)
       const tt = this.tiltT; this.tiltT = null;
       this.tiltX = damp(this.tiltX || 0, tt ? tt.x : 0, 9, dt); this.tiltZ = damp(this.tiltZ || 0, tt ? tt.z : 0, 9, dt);
-      this.rig.root.rotation.x = this.dive ? clamp(Math.min(1.15, this.speed * 0.45) - this.vel.y * 0.18, -0.7, 1.35) : this.state === 'busy' && this.busyAnim === 'faint' ? -1.35 : this.tiltX; this.rig.root.rotation.order = 'YXZ';   // a diver tips head-down to sink, head-up to rise; a knocked-out hero lies flat
+      // a landing roll: one forward somersault, tucked, turning about the hips
+      let flip = 0;
+      if (this.rollT > 0) { this.rollT -= dt; if (this.state !== 'walk' || !this.grounded) this.rollT = 0; flip = this.rollT > 0 ? (1 - this.rollT / 0.45) * Math.PI * 2 : 0; }
+      this.rig.root.rotation.x = this.dive ? clamp(Math.min(1.15, this.speed * 0.45) - this.vel.y * 0.18, -0.7, 1.35) : this.state === 'busy' && this.busyAnim === 'faint' ? -1.35 : this.tiltX + flip; this.rig.root.rotation.order = 'YXZ';   // a diver tips head-down to sink, head-up to rise; a knocked-out hero lies flat
       this.rig.root.rotation.z = this.tiltZ;
-      if (Math.abs(this.tiltX) + Math.abs(this.tiltZ) > 0.01 && !this.dive) {   // tilt about the hands, not the feet, so the hands stay on the line
-        const h = 1.5 * this.rig.root.scale.y, v = (this._tv || (this._tv = new THREE.Vector3())).set(0, h, 0).applyEuler(this.rig.root.rotation);
+      if (Math.abs(this.tiltX) + Math.abs(this.tiltZ) + flip > 0.01 && !this.dive) {   // tilt about the hands, not the feet, so the hands stay on the line (a roll turns about the hips)
+        const h = (flip ? 0.55 : 1.5) * this.rig.root.scale.y, v = (this._tv || (this._tv = new THREE.Vector3())).set(0, h, 0).applyEuler(this.rig.root.rotation);
         this.rig.root.position.x -= v.x; this.rig.root.position.y += h - v.y; this.rig.root.position.z -= v.z;
       }
       this.rig.root.visible = !this.firstPerson && this.state !== 'ride';
@@ -140,7 +143,12 @@ export class Player {
     const k = aloft ? 2.2 : this.board ? (this.grounded ? 3.2 : 1.5) : this.grounded ? 11 : 2.5; // a board glides: slow to start, slow to stop
     const sp0 = Math.hypot(this.vel.x, this.vel.z);
     if (this.grounded || swim) this.fling = false;
-    if (this.fling && !this.board && !this.jet) {
+    if (this.rollT > 0 && this.grounded && !swim) {
+      // rolling out of a landing: the speed carries, easing off, and the keys can turn it a little
+      let dx = sp0 > 0.5 ? this.vel.x / sp0 : Math.sin(this.yaw), dz = sp0 > 0.5 ? this.vel.z / sp0 : Math.cos(this.yaw);
+      if (len > 0) { const a = Math.atan2(dx, dz), b = a + clamp(angDelta(a, Math.atan2(wx, wz)), -1.5 * dt, 1.5 * dt); dx = Math.sin(b); dz = Math.cos(b); }
+      const s = sp0 * (1 - 1.1 * dt); this.vel.x = dx * s; this.vel.z = dz * s;
+    } else if (this.fling && !this.board && !this.jet) {
       // flung off a line, a zip or a wall (Hero Mode): the speed carries through the air. The keys turn it and
       // add a little, pulling back brakes, and the air only slows it gently; it ends when you land.
       let dx = sp0 > 0.5 ? this.vel.x / sp0 : wx, dz = sp0 > 0.5 ? this.vel.z / sp0 : wz, s = sp0 * (1 - 0.06 * dt);
@@ -275,7 +283,11 @@ export class Player {
     if (this.pos.y <= g) {
       if (!this.grounded) {
         this.landed = -this.vel.y; if (this.landed > 6.5 && !this.board) this.play('land', 0.16);   // how hard we came down
-        if (this.fling) { this.fling = false; const h = Math.hypot(this.vel.x, this.vel.z); if (h > 9) { this.vel.x *= 9 / h; this.vel.z *= 9 / h; } }   // a hero landing from a swing runs out of it
+        if (this.fling) {   // a hero landing from a swing: fast or hard, a forward roll that keeps some of the speed; otherwise run out of it
+          this.fling = false; const h = Math.hypot(this.vel.x, this.vel.z), roll = G.heroes && G.heroes.on && (h > 15 || this.landed > 16), cap = roll ? 12 : 9;
+          if (h > cap) { this.vel.x *= cap / h; this.vel.z *= cap / h; }
+          if (roll) { this.rollT = 0.45; this.play('crouch', 0.45); if (G.fx) G.fx.dust(this.pos, 4, 0.6); if (G.audio) G.audio.thud(0.35); }
+        }
       }
       this.pos.y = this.vel.y < -1 || g - this.pos.y < 0.02 ? g : damp(this.pos.y, g, 26, dt);
       this.vel.y = 0; this.grounded = true; this.fallWarned = false;
