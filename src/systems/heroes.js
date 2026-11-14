@@ -397,6 +397,7 @@ export class Heroes {
   endMove(air = true) {
     const p = G.player; const mv = this.mv; this.mv = null;
     if (mv && mv.rope) mv.rope.life = 0;
+    if (mv && mv.ropes) for (const b of mv.ropes) b.life = 0;
     if (p.state === 'hero') { p.state = 'walk'; p.grounded = !air; }
   }
   move(dt, inp, col) {
@@ -466,20 +467,51 @@ export class Heroes {
     return best;
   }
   startSwing(auto = false) {
-    const p = G.player, inp = G.input, head = this.swingHead(inp), A = this.findAnchor(head, -(this.lastSide || -1));
+    const p = G.player, inp = G.input, head = this.swingHead(inp), col = G.colliders, s = p.rig.root.scale.y, hy = p.pos.y + 1.5 * s;
+    // hands alternate, but close to a wall the next line goes to the far side of the street
+    const rx = -Math.cos(head), rz = Math.sin(head), dR = col.raycast(p.pos.x, hy, p.pos.z, rx, 0, rz, 30), dL = col.raycast(p.pos.x, hy, p.pos.z, -rx, 0, -rz, 30);
+    const A = this.findAnchor(head, Math.min(dL, dR) < 7 ? (dR > dL ? 1 : -1) : -(this.lastSide || -1));
     if (!A) { if (!auto && (this.airT || 0) > 0.12 && !(this.cd.noAnchor > 0)) { G.ui.toast('Nothing tall enough to swing from here.', 'info'); this.cd.noAnchor = 4; } return false; }
-    const s = p.rig.root.scale.y, r = V().set(A.a.x - p.pos.x, A.a.y - p.pos.y - 1.5 * s, A.a.z - p.pos.z), L = r.length(); r.divideScalar(L);
+    // The line is drawn to the building, but the swing pivots on a point above your path: a true pendulum
+    // bottoms out under its anchor, at the wall, so every swing would drag you into the building (the
+    // games cheat the same way). Only a little of the sideways offset is kept, enough to lean into.
+    const lat = (A.a.x - p.pos.x) * rx + (A.a.z - p.pos.z) * rz, keep = clamp(lat * 0.3, -3, 3);
+    const piv = A.a.clone(); piv.x -= rx * (lat - keep); piv.z -= rz * (lat - keep);
+    const r = V().set(piv.x - p.pos.x, piv.y - hy, piv.z - p.pos.z), L = r.length(); r.divideScalar(L);
     // moving away from the anchor (a fall, a dive): that speed is turned along the arc instead of lost
     const sp = p.vel.length(), vr = p.vel.dot(r);
     if (vr < 0 && sp > 1) { p.vel.addScaledVector(r, -vr); const t = p.vel.length(); if (t > 0.3) p.vel.multiplyScalar((sp * 0.92) / t); }
     this.lastSide = A.side; this.zips = 2;
-    this.startMove('swing', { a: A.a, L, Lwant: Math.min(L * 0.93, A.Lmax), head, side: A.side, ph: -1 });
-    // the line shoots out from the hand and sticks a moment later
-    const sd = A.side, t0 = G.elapsed, from = (v) => (sd < 0 ? this.handL(v) : this.hand(v));
-    this.mv.rope = G.fx.beam(from, (v) => { const k = Math.min(1, (G.elapsed - t0) / 0.07); return k >= 1 ? v.copy(A.a) : from(v).lerp(A.a, k); }, '#e8fbff', 0.025, 1e9, false);
-    this.later(0.07, () => G.fx.spark(A.a, '#f2fbff', 6, 3, 0.25, 0.1, 2));
+    this.startMove('swing', { a: piv, L, Lwant: Math.min(L * 0.93, A.Lmax), head, side: A.side, ph: -1 });
+    // the line shoots out from the hand, sticks a moment later, and is drawn to the real point on the building
+    const sd = A.side, from = (v) => (sd < 0 ? this.handL(v) : this.hand(v));
+    this.mv.ropes = this.webLine(from, A.a, G.elapsed);
+    G.fx.spark(from(V()), '#e8fbff', 4, 2, 0.15, 0.06, 0);
+    this.later(0.08, () => G.fx.spark(A.a, '#f2fbff', 6, 3, 0.25, 0.1, 2));
     this.sound('web');
     return true;
+  }
+  // A web line: a short chain of segments with a bright core and a faint teal glow. It flies out to the
+  // anchor over 0.08 s with a little droop, then hangs slack whenever you swing in closer than its length
+  // and snaps straight when it takes your weight. Returns the beams (endMove releases them).
+  webLine(from, to, t0, n = 6) {
+    const c = { f: -1, h: V(), k: 0, s: 0 }, mv = this.mv;
+    const pt = (u, out) => {
+      if (c.f !== G.elapsed) {   // once a frame: where the hand is, how far the line has flown, how much it sags
+        c.f = G.elapsed; from(c.h); const age = G.elapsed - t0, D = c.h.distanceTo(to);
+        c.k = Math.min(1, age / 0.08);
+        c.s = Math.min(3, Math.max(0, (mv.L || 0) - D) * 0.45) + D * 0.035 * Math.max(0, 1 - age / 0.22);
+      }
+      out.copy(c.h).lerp(to, u * c.k); out.y -= c.s * 4 * u * (1 - u);
+      return out;
+    };
+    const list = [];
+    for (let i = 0; i < n; i++) {
+      const a = i / n, b = (i + 1) / n;
+      list.push(G.fx.beam((v) => pt(a, v), (v) => pt(b, v), '#eefcff', 0.022, 1e9, false));
+      list.push(G.fx.beam((v) => pt(a, v), (v) => pt(b, v), '#1d6a62', 0.075, 1e9, false));
+    }
+    return list;
   }
   swingStep(dt, inp, col) {
     const p = G.player, mv = this.mv, a = mv.a, H = 1.5 * p.rig.root.scale.y;
@@ -495,7 +527,7 @@ export class Heroes {
     mv.L = Math.max(5, mv.L);
     // walls close to either side push you back toward the middle of the street
     const hv0 = Math.hypot(p.vel.x, p.vel.z);
-    if (hv0 > 4) for (const sd of [-1, 1]) { const sx = (-p.vel.z / hv0) * sd, sz = (p.vel.x / hv0) * sd, d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, sx, 0, sz, 3); if (d < 3) { p.vel.x -= sx * (3 - d) * 9 * dt; p.vel.z -= sz * (3 - d) * 9 * dt; } }
+    if (hv0 > 4) for (const sd of [-1, 1]) { const sx = (-p.vel.z / hv0) * sd, sz = (p.vel.x / hv0) * sd, d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, sx, 0, sz, 6); if (d < 6) { p.vel.x -= sx * (6 - d) * 7 * dt; p.vel.z -= sz * (6 - d) * 7 * dt; } }
     const n = Math.min(6, Math.max(1, Math.ceil((p.vel.length() * dt) / 0.35))), h = dt / n, before = this._before || (this._before = V());
     for (let i = 0; i < n; i++) {
       p.vel.y -= 28 * h;                                                                 // heavier than a fall: a snappy arc
