@@ -54,12 +54,13 @@ double-click it, or send it to someone. It keeps its own save in the browser tha
 | `E` interact / talk / sit / eat / lifts / board the maglev | `E` charge when parked on a pad |
 | `F` board your vehicle | `F` step out, `T` autopilot, `R` radio station |
 | `Tab` lens menu (status, career, pocket food, drone delivery, wait, valet, save) | |
-| `P` pause: settings (graphics quality, volume, music, battle music, car radio, spoken lines, mouse), controls, unstuck, save | same |
+| `P` pause: settings (graphics quality, volume, music, battle music, car radio, spoken lines, mouse lock, mouse), controls, unstuck, save | same |
 | `Q` phone: bring a vehicle to where you stand, jump to a gate, a home or your vehicle, map, cab, jobs, food, milestones, camera, settings | |
 | `M` full map (click a transit gate to travel) · `J` jet harness (once bought) · `O` photo mode (hides the interface; `Enter` or click takes a picture) | `M` full map |
 
 **Gamepad** (Xbox or PlayStation layout): left stick move (a light tilt walks), right stick look, A jump or climb, B crouch, X use, Y board or step out, LT sprint or boost, RT throttle, LB phone, RB view, View map, Menu pause, L3 hoverboard, R3 jet harness. On the title screen, in menus and on the phone: D-pad or stick to choose, A to pick, B to go back.
 On a ladder: `W/S` climb, `Shift` faster, `Space` lets go. Bot Arena: `W/S` drive, `A/D` turn, `Space` ram, `F` forfeit.
+**Mouse:** once you are in the world the cursor locks to the game and the mouse steers the camera. `Esc` frees the mouse; click the game to lock it again. Settings ▸ Lock the mouse in the world turns this off (then hold a mouse button and drag to look). Some embedded browser views (such as the Claude app's browser pane) never allow the lock; the game says so and dragging still works.
 Number keys pick menu options. `H` hides the control hints. While piloting a drone: `W/S` thrust,
 `A/D` turn, `Space/C` height, `F` recall. Grav-Hoops: aim with the camera, hold `Space` to charge, release to shoot.
 

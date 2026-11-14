@@ -10,7 +10,7 @@ export const QUALITY = {
   medium: { label: 'Medium', msaa: 2, prMax: 1.2, prMin: 0.8, shadows: true, bloom: true, close: 1, detail: 330 },
   low: { label: 'Low', msaa: 0, prMax: 1, prMin: 0.65, shadows: false, bloom: false, close: 0.7, detail: 250 },
 };
-const DEFAULTS = { quality: 'auto', volume: 0.7, music: true, battleMusic: true, radio: 0, voices: true, sens: 1, invertY: false, fps: false, hints: true, fov: 60, cam: 'normal' };
+const DEFAULTS = { quality: 'auto', volume: 0.7, music: true, battleMusic: true, radio: 0, voices: true, mouseLock: true, sens: 1, invertY: false, fps: false, hints: true, fov: 60, cam: 'normal' };
 
 export const Settings = {
   data: { ...DEFAULTS },

@@ -97,6 +97,7 @@ export class UI {
       { label: `Battle music: ${d.battleMusic ? 'on' : 'off'}`, desc: 'Hero Mode: music that builds through raids, with a theme for each villain boss.', onPick: flip('battleMusic') },
       { label: `Car radio: ${d.radio >= 0 && STATIONS[d.radio] ? STATIONS[d.radio].name : 'off'}`, desc: 'Plays while you drive. R in a car changes station.', onPick: () => { Settings.set('radio', d.radio + 1 >= STATIONS.length ? -1 : d.radio + 1); again(); } },
       { label: `Spoken lines: ${d.voices ? 'on' : 'off'}`, desc: 'Villains, radio hosts and heroes speak with this computer\'s voices. Captions show either way.', onPick: flip('voices') },
+      { label: `Lock the mouse in the world: ${d.mouseLock ? 'on' : 'off'}`, desc: d.mouseLock ? 'The cursor hides and the mouse turns the camera. Esc frees the mouse; click the game to lock it again.' : 'The cursor stays free. Hold a mouse button and drag to look around.', onPick: flip('mouseLock') },
       { label: `Mouse sensitivity: ${d.sens}×`, onPick: () => { Settings.set('sens', next([0.5, 0.75, 1, 1.5, 2], d.sens)); again(); } },
       { label: `Vertical look: ${d.invertY ? 'inverted' : 'normal'}`, onPick: flip('invertY') },
       { label: `Field of view: ${d.fov}°`, desc: 'How wide the camera sees on foot. Wider shows more of the city at the edges.', onPick: () => { Settings.set('fov', next([55, 60, 65, 70, 75, 80], d.fov)); again(); } },
