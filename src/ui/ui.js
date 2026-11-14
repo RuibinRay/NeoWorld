@@ -121,7 +121,7 @@ export class UI {
     h.style.display = this.helpOn ? 'block' : 'none';
     const drive = G.player && G.player.state === 'drive';
     const hero = G.heroes && G.heroes.on && !drive;
-    if (hero) { h.innerHTML = `<b>${G.heroes.H.name}</b> · <b>Click / Z</b> light · <b>Right click / X</b> heavy · <b>1 2 3</b> powers · <b>R</b> ultimate · <b>Space</b> jump${G.heroes.id === 'strand' ? ' (in the air: swing)' : G.heroes.id === 'forge' ? ' (in the air: fly)' : ''} · <b>Q</b> phone (Heroes app) · <b>P</b> pause · <b>H</b> hide`; return; }
+    if (hero) { h.innerHTML = `<b>${G.heroes.H.name}</b> · <b>Click / Z</b> light · <b>Right click / X</b> heavy · <b>1 2 3</b> powers · <b>R</b> ultimate · <b>Space</b> jump${G.heroes.id === 'strand' ? ' (hold: swing) · <b>Shift</b> in the air: web zip · <b>C</b> in the air: dive' : G.heroes.id === 'forge' ? ' (in the air: fly)' : ''} · <b>Q</b> phone (Heroes app) · <b>P</b> pause · <b>H</b> hide`; return; }
     h.innerHTML = drive
       ? '<b>W/S</b> thrust · <b>A/D</b> turn · <b>Space</b> climb / take off · <b>C</b> descend / land · <b>Shift</b> boost · <b>T</b> autopilot · <b>V</b> cockpit · <b>F</b> step out · <b>R</b> radio · <b>Tab</b> lens · <b>P</b> pause · <b>H</b> hide'
       : '<b>WASD</b> move · <b>Mouse</b> or <b>arrows</b> look · <b>Shift</b> sprint · <b>Space</b> jump · <b>C</b> crouch · <b>V</b> first person' + (G.state && G.state.owns.board ? ' · <b>B</b> hoverboard' : '') + (G.state && G.state.owns.jetpack ? ' · <b>J</b> jet harness' : '') + ' · <b>E</b> interact · <b>F</b> vehicle · <b>Q</b> phone · <b>M</b> map · <b>Tab</b> lens · <b>P</b> pause · <b>H</b> hide';

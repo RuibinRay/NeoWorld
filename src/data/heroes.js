@@ -12,7 +12,10 @@ export const HEROES = {
       ['Light', 'Punch, punch, kick'], ['Heavy', 'Yank: pulls the nearest enemy in front of you into a slam'],
       ['1 Line', 'Pull an enemy to you, or zip to the wall you aim at'], ['2 Snare', 'A sticky ball that ties up everyone it splashes'],
       ['3 Danger sense', 'For 6 s every attack misses you'], ['R Line storm', 'Lines to every villain within 30 m: tied up and pulled together'],
-      ['Space in the air', 'Hold to swing from a line; let go to fly on'], ['Space at a wall', 'Run up it; Space again to jump off'],
+      ['Space (hold)', 'Jump and swing from a line to the building ahead; keep holding and the next line goes out by itself'],
+      ['Let go of Space', 'Fly on with your speed; let go as you rise out of the arc for a big boost and a flip'],
+      ['A / D on a line', 'Steer the swing; W pushes on, S brakes'], ['Shift in the air', 'Web zip: a quick yank forward (twice, then swing or land)'],
+      ['C in the air', 'Dive: fall fast, then swing out of it for the speed'], ['Into a wall', 'Run up it with your speed and vault off the top; Space jumps off'],
     ],
   },
   forge: {

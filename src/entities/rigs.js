@@ -368,6 +368,17 @@ export function animateRig(r, dt, anim, speed = 0) {
     case 'fly': T.lean = 1.3; T.headX = -1.0; T.aL = T.aR = 0.35; T.aLz = 0.28; T.aRz = -0.28; T.eL = T.eR = -0.1; T.lL = T.lR = 0.12; T.kL = 0.15; T.kR = 0.25; k = 7; break;
     case 'hover': T.lean = 0.08 + Math.sin(t * 2) * 0.03; T.aLz = 0.45; T.aRz = -0.45; T.eL = T.eR = -0.55; T.lL = -0.25; T.kL = 0.45; T.lR = 0.08; T.kR = 0.2; k = 8; break;
     case 'swing': T.aR = -2.95; T.eR = -0.05; T.aRz = 0.1; T.aL = -0.5; T.eL = -0.6; T.lL = -0.75; T.kL = 1.1; T.lR = 0.25; T.kR = 0.7; T.lean = 0.15; T.headX = -0.25; k = 10; break;
+    case 'webswing': {
+      // Strand on a line: the hand on the anchor's side holds it overhead, the other reaches out; the legs
+      // trail behind dropping in, tuck through the bottom, and kick forward rising out (r.swing.ph -1 .. 1)
+      const sw = r.swing || { side: 1, ph: 0 }, u = clamp(sw.ph, -1, 1), w = Math.abs(u);
+      if (sw.side >= 0) { T.aR = -2.95; T.eR = -0.05; T.aRz = 0.12; T.aL = -0.4; T.eL = -0.8; T.aLz = 0.55; }
+      else { T.aL = -2.95; T.eL = -0.05; T.aLz = -0.12; T.aR = -0.4; T.eR = -0.8; T.aRz = -0.55; }
+      const tuck = { lL: -1.1, lR: -0.95, kL: 1.7, kR: 1.55, lean: 0.35, headX: -0.2 };
+      const end = u < 0 ? { lL: 0.25, lR: 0.5, kL: 0.5, kR: 0.95, lean: 0.25, headX: -0.35 } : { lL: -1.4, lR: -1.05, kL: 0.2, kR: 0.55, lean: -0.25, headX: -0.3 };
+      T.lL = lerp(tuck.lL, end.lL, w); T.lR = lerp(tuck.lR, end.lR, w); T.kL = lerp(tuck.kL, end.kL, w); T.kR = lerp(tuck.kR, end.kR, w); T.lean = lerp(tuck.lean, end.lean, w); T.headX = lerp(tuck.headX, end.headX, w);
+      k = 9; break;
+    }
     case 'zip': T.aL = T.aR = -2.6; T.eL = T.eR = -0.1; T.lean = 0.5; T.lL = -0.4; T.lR = 0.3; T.kL = 0.8; T.kR = 0.5; k = 16; break;
     case 'spin': T.twist = t * 22; T.aLz = 1.4; T.aRz = -1.4; T.eL = T.eR = -0.1; T.lL = -0.3; T.kL = 0.6; k = 40; break;
     case 'hurt': T.lean = -0.4; T.headX = -0.35; T.aLz = 0.8; T.aRz = -0.8; T.eL = T.eR = -0.6; T.lL = 0.2; T.kR = 0.4; T.hipsY = 0.88; k = 30; break;

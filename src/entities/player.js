@@ -88,7 +88,15 @@ export class Player {
       if (this.boardMesh) { this.boardMesh.visible = riding && !this.firstPerson; this.boardMesh.position.set(this.pos.x, this.pos.y + 0.14 + Math.sin(G.elapsed * 3) * 0.02, this.pos.z); this.boardMesh.rotation.y = this.yaw; }
       if (riding) this.rig.root.position.y += 0.19 + Math.sin(G.elapsed * 3) * 0.02;
       if (this.swim && !this.dive && this.state === 'walk') this.rig.root.position.y -= 1.12 - Math.sin(G.elapsed * 2) * 0.04 - (G.diving && G.diving.sea(this.pos.x, this.pos.z) ? waveHeight(this.pos.x, this.pos.z) : 0); // shoulders at the surface, riding the swell
-      this.rig.root.rotation.x = this.dive ? clamp(Math.min(1.15, this.speed * 0.45) - this.vel.y * 0.18, -0.7, 1.35) : this.state === 'busy' && this.busyAnim === 'faint' ? -1.35 : 0; this.rig.root.rotation.order = 'YXZ';   // a diver tips head-down to sink, head-up to rise; a knocked-out hero lies flat
+      // a hero on a line hangs along it (Hero Mode sets tiltT each frame it wants a tilt; it eases back to upright)
+      const tt = this.tiltT; this.tiltT = null;
+      this.tiltX = damp(this.tiltX || 0, tt ? tt.x : 0, 9, dt); this.tiltZ = damp(this.tiltZ || 0, tt ? tt.z : 0, 9, dt);
+      this.rig.root.rotation.x = this.dive ? clamp(Math.min(1.15, this.speed * 0.45) - this.vel.y * 0.18, -0.7, 1.35) : this.state === 'busy' && this.busyAnim === 'faint' ? -1.35 : this.tiltX; this.rig.root.rotation.order = 'YXZ';   // a diver tips head-down to sink, head-up to rise; a knocked-out hero lies flat
+      this.rig.root.rotation.z = this.tiltZ;
+      if (Math.abs(this.tiltX) + Math.abs(this.tiltZ) > 0.01 && !this.dive) {   // tilt about the hands, not the feet, so the hands stay on the line
+        const h = 1.5 * this.rig.root.scale.y, v = (this._tv || (this._tv = new THREE.Vector3())).set(0, h, 0).applyEuler(this.rig.root.rotation);
+        this.rig.root.position.x -= v.x; this.rig.root.position.y += h - v.y; this.rig.root.position.z -= v.z;
+      }
       this.rig.root.visible = !this.firstPerson && this.state !== 'ride';
       this.rig.canopy.visible = G.env.rain > 0.3 && G.env.indoor < 0.5 && this.state === 'walk';
       if (this.jet || this.jetMesh) this.showJet();
@@ -131,7 +139,18 @@ export class Player {
     const max = (swim ? (this.dive && sprint ? 3.6 : 2.3) : aloft ? (sprint ? 20 : 12.5) : this.board ? (sprint ? 12 : 8.5) * tune : (this.crouch ? 1.6 : sprint ? 7.2 : slow ? 1.6 : 3.4) * (this.speedMul || 1)) * (tilt > 0.05 ? Math.min(1, Math.max(0.35, tilt * 1.15)) : 1);
     const k = aloft ? 2.2 : this.board ? (this.grounded ? 3.2 : 1.5) : this.grounded ? 11 : 2.5; // a board glides: slow to start, slow to stop
     const sp0 = Math.hypot(this.vel.x, this.vel.z);
-    if (this.grounded && !this.board && !swim && !aloft) {
+    if (this.grounded || swim) this.fling = false;
+    if (this.fling && !this.board && !this.jet) {
+      // flung off a line, a zip or a wall (Hero Mode): the speed carries through the air. The keys turn it and
+      // add a little, pulling back brakes, and the air only slows it gently; it ends when you land.
+      let dx = sp0 > 0.5 ? this.vel.x / sp0 : wx, dz = sp0 > 0.5 ? this.vel.z / sp0 : wz, s = sp0 * (1 - 0.06 * dt);
+      if (len > 0) {
+        const a = Math.atan2(dx, dz), diff = angDelta(a, Math.atan2(wx, wz));
+        if (Math.abs(diff) > 2.4 && s > 2) s = Math.max(0, s - 14 * dt);
+        else { const b = a + clamp(diff, -2.2 * dt, 2.2 * dt); dx = Math.sin(b); dz = Math.cos(b); if (s < max) s = Math.min(max, s + 6 * dt); }
+      }
+      this.vel.x = dx * s; this.vel.z = dz * s;
+    } else if (this.grounded && !this.board && !swim && !aloft) {
       // On foot there is momentum: quick to get going, slower to build a sprint, quick to stop. At speed the
       // direction swings round (a sprint makes a wider turn than a jog), and turning right round brakes first.
       let dx = sp0 > 0.3 ? this.vel.x / sp0 : wx, dz = sp0 > 0.3 ? this.vel.z / sp0 : wz, target = len > 0 ? max : 0;
@@ -149,7 +168,7 @@ export class Player {
     const yaw0 = this.yaw;
     if (this.aimT > 0) { this.aimT -= dt; this.yaw = dampAngle(this.yaw, this.camYaw, 22, dt); }      // a hero attacking faces where the camera looks
     else if (this.firstPerson) this.yaw = cy;
-    else if (this.speed > 0.6 && !this.board && this.grounded) this.yaw = dampAngle(this.yaw, Math.atan2(this.vel.x, this.vel.z), 11, dt);   // face the way you are going
+    else if (this.speed > 0.6 && !this.board && (this.grounded || (this.fling && this.speed > 3))) this.yaw = dampAngle(this.yaw, Math.atan2(this.vel.x, this.vel.z), this.grounded ? 11 : 8, dt);   // face the way you are going
     else if (len > 0) this.yaw = dampAngle(this.yaw, Math.atan2(wx, wz), 12, dt);
     // lean into turns when moving fast
     this.rig.bank = damp(this.rig.bank, this.grounded && this.speed > 4 && !this.firstPerson ? clamp(Math.atan2(Math.sin(this.yaw - yaw0), Math.cos(this.yaw - yaw0)) / Math.max(dt, 1e-3) * -0.035, -0.22, 0.22) : 0, 8, dt);
@@ -210,7 +229,7 @@ export class Player {
   }
   startClimb(x, y, z, T, vault) {
     this.climb = { t: 0, T, vault, x0: this.pos.x, y0: this.pos.y, z0: this.pos.z, x, y, z };
-    this.state = 'climb'; this.vel.set(0, 0, 0); this.board = false; this.crouch = false; this.grounded = false;
+    this.state = 'climb'; this.vel.set(0, 0, 0); this.board = false; this.crouch = false; this.grounded = false; this.fling = false;
     if (G.audio) G.audio.blip(vault ? 330 : 260, 0.05);
   }
   mantleStep(dt) {
@@ -254,7 +273,10 @@ export class Player {
     }
     this.pos.y += this.vel.y * dt;
     if (this.pos.y <= g) {
-      if (!this.grounded) { this.landed = -this.vel.y; if (this.landed > 6.5 && !this.board) this.play('land', 0.16); } // how hard we came down
+      if (!this.grounded) {
+        this.landed = -this.vel.y; if (this.landed > 6.5 && !this.board) this.play('land', 0.16);   // how hard we came down
+        if (this.fling) { this.fling = false; const h = Math.hypot(this.vel.x, this.vel.z); if (h > 9) { this.vel.x *= 9 / h; this.vel.z *= 9 / h; } }   // a hero landing from a swing runs out of it
+      }
       this.pos.y = this.vel.y < -1 || g - this.pos.y < 0.02 ? g : damp(this.pos.y, g, 26, dt);
       this.vel.y = 0; this.grounded = true; this.fallWarned = false;
     } else if (this.grounded && this.pos.y - g < 0.55 && this.vel.y <= 0) { this.pos.y = damp(this.pos.y, g, 22, dt); this.vel.y = 0; }
@@ -269,8 +291,11 @@ export class Player {
     cam.up.set(0, 1, 0);
     // the camera follows a point that trails you a little (softer on stairs, starts and landings)
     const ct = this.camT || (this.camT = this.pos.clone());
-    if (ct.distanceToSquared(this.pos) > 36 || !(this.state === 'walk' || this.state === 'climb' || this.state === 'ladder')) ct.copy(this.pos);
-    else { ct.x = damp(ct.x, this.pos.x, 24, dt); ct.z = damp(ct.z, this.pos.z, 24, dt); ct.y = damp(ct.y, this.pos.y, 13, dt); }
+    // a hero swinging or flung through the air: the camera trails further behind, then catches up
+    const fast = (this.state === 'hero' && G.heroes && G.heroes.mv && G.heroes.mv.kind !== 'wall') || (this.fling && !this.grounded);
+    this.camLag = damp(this.camLag || 24, fast ? 14 : 24, 4, dt);
+    if (ct.distanceToSquared(this.pos) > (fast ? 100 : 36) || !(this.state === 'walk' || this.state === 'climb' || this.state === 'ladder' || fast)) ct.copy(this.pos);
+    else { ct.x = damp(ct.x, this.pos.x, this.camLag, dt); ct.z = damp(ct.z, this.pos.z, this.camLag, dt); ct.y = damp(ct.y, this.pos.y, Math.min(13, this.camLag), dt); }
     if (this.firstPerson) {
       const bob = this.state === 'walk' && this.grounded && this.speed > 0.5 ? Math.sin((this.rig.gp || 0) * Math.PI * 4) * Math.min(1, this.speed / 7) * 0.035 : 0;
       cam.position.set(this.pos.x + fx * 0.12, this.pos.y + this.eyeY + bob, this.pos.z + fz * 0.12);
