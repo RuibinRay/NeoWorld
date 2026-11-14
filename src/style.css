@@ -1,0 +1,5 @@
+
+/* spoken lines: a caption above the help bar */
+#caption { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 8px); max-width: min(680px, 86vw); padding: 8px 14px; border-radius: 10px; background: rgba(8, 10, 18, 0.72); color: #f2f4fa; font: 500 15px/1.35 system-ui, sans-serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 30; }
+#caption.on { opacity: 1; transform: translate(-50%, 0); }
+#caption b { margin-right: 4px; }
