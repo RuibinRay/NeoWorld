@@ -73,12 +73,36 @@ export class UI {
       { label: 'Resume', onPick: resume },
       { label: 'Settings', desc: 'Graphics, sound, mouse', onPick: () => this.settingsMenu() },
       { label: 'Controls', onPick: () => this.controlsMenu() },
+      { label: 'Redeem a code', desc: G.state.perks ? 'Code perks are on' : 'Enter a code for a reward', onPick: () => this.codeMenu() },
       { label: 'Unstuck', desc: 'Move to the nearest walkway, or your vehicle to the nearest pad', onPick: () => { resume(); G.unstuck(); } },
       { label: 'Save now', onPick: () => { G.save.write(); this.pauseMenu(); } },
       { label: 'Save to a file', desc: 'Your progress and photos in one file: keep it safe, or carry on in another browser', onPick: () => { SaveFile.download(); this.pauseMenu(); } },
       { label: 'Load from a file', desc: 'Replaces the progress in this browser', onPick: () => { this.pauseMenu(); SaveFile.pick((f) => this.loadFile(f, () => this.pauseMenu())); } },
       { label: 'Save and return to the title screen', onPick: () => { G.save.write(true); location.reload(); } },
     ] });
+  }
+  // Codes. 7103: unlimited money (the wallet stays full), unlimited energy, and every hero unlocked
+  // without the Hero Hall missions. Saved with your progress; it can be switched off here again.
+  codeMenu() {
+    const st = G.state, on = !!st.perks;
+    let typed = '';
+    const redeem = () => {
+      const code = typed.trim();
+      if (code === '7103') {
+        st.perks = { money: true, energy: true, heroes: true }; st.wallet = Math.max(st.wallet, 9999999); G.player.energy = 100;
+        this.flash('CODE REDEEMED', 1.6); this.toast('Unlimited money and energy, and every hero is unlocked.', 'good');
+        if (G.audio) G.audio.tone(660, 0.4, 0.05, 'triangle', null, 0.02, 1.5); G.save.write(true);
+        this.pauseMenu();
+      } else { this.toast(code ? 'That code does not work.' : 'Type a code first.', 'warn'); this.codeMenu(); }
+    };
+    this.openMenu({ title: 'Redeem a code', who: on ? 'Code 7103 is active' : 'Codes', wide: false, onClose: () => { G.paused = false; },
+      html: on ? '<p>Unlimited money and energy are on, and every hero is unlocked.</p>' : '<p>Type a code and press Enter.</p><input id="code-in" type="text" inputmode="numeric" maxlength="12" autocomplete="off" style="width:100%;font-size:20px;padding:8px;letter-spacing:4px">',
+      options: on ? [
+        { label: 'Switch the code perks off', desc: 'Money stays as it is; energy and locked heroes go back to normal', onPick: () => { st.perks = null; this.toast('Code perks off.', 'info'); G.save.write(true); this.pauseMenu(); } },
+        { label: 'Back', onPick: () => this.pauseMenu() },
+      ] : [{ label: 'Redeem', onPick: redeem }, { label: 'Back', onPick: () => this.pauseMenu() }] });
+    const inp = !on && this.$('menu').querySelector('#code-in');
+    if (inp) { inp.oninput = () => { typed = inp.value; }; inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); typed = inp.value; this.closeMenu(true); redeem(); } else if (e.key === 'Escape') { this.closeMenu(); } }; setTimeout(() => inp.focus(), 0); }
   }
   // confirm a save file picked from disk (f: SaveFile.parse's answer); back() reopens where we came from
   loadFile(f, back) {
@@ -229,6 +253,7 @@ export class UI {
       this.$('clock').textContent = fmtClock(env.mins);
       this.$('daywx').textContent = `${weekday(env.day)} · Day ${env.day} · ${env.label}`;
       this.$('loc').textContent = this.locate(p.pos);
+      if (st.perks && st.perks.money && st.wallet < 9999999) st.wallet = 9999999;   // code 7103: the wallet never runs down
       this.$('wallet').textContent = Math.round(st.wallet).toLocaleString('en-US');
       this.$('energy').style.width = p.energy + '%'; this.$('energy').style.background = p.energy < 20 ? 'var(--warn)' : 'var(--ok)';
       this.$('energyv').textContent = Math.round(p.energy) + '%';

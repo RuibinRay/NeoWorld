@@ -103,9 +103,21 @@ export class Combat {
     if (civ && G.npcs) for (const n of G.npcs.near) { if (n.inside || n.body !== 'humanoid') continue; const d = test(n.pos.x, n.pos.y + 0.95, n.pos.z, 0.35); if (d >= 0 && d < best) { best = d; hit = null; npc = n; } }
     let wall = false;
     if (walls) { const w = G.colliders.raycast(o.x, o.y, o.z, dir.x, dir.y, dir.z, best); if (w < best - 1e-3) { best = w; hit = null; npc = null; wall = true; } }
+    // The open ground is not a box, so the ray above would pass under the street: walk down it in 2 m
+    // steps to where it meets the ground (or a deck), then narrow that down, so aiming at the street lands on it.
+    let ground = false;
+    if (!hit && !npc && dir.y < -0.01) {
+      const col = G.colliders, under = (s) => { const y = o.y + dir.y * s; return y < col.groundAt(o.x + dir.x * s, o.z + dir.z * s, y + 1, 2, 0.2); };
+      for (let s = 2, prev = 0; s < best + 2; prev = s, s += 2) {
+        const at = Math.min(s, best); if (!under(at)) continue;
+        let lo = prev, hi = at; for (let k = 0; k < 7; k++) { const m = (lo + hi) / 2; if (under(m)) hi = m; else lo = m; }
+        if (hi < best - 1e-3) { best = hi; wall = true; ground = true; }
+        break;
+      }
+    }
     const point = new THREE.Vector3().copy(o).addScaledVector(dir, best);
-    if (!wall && !hit && !npc && point.y < G.colliders.groundAt(point.x, point.z, point.y + 1, 2, 0.2) + 0.05) wall = true;   // into the ground
-    return { t: best, target: hit, npc, wall: wall || (best < range && !hit && !npc), point, missed: !hit && !npc && !wall && best >= range };
+    if (!wall && !hit && !npc && point.y < G.colliders.groundAt(point.x, point.z, point.y + 1, 2, 0.2) + 0.05) { wall = true; ground = true; }   // into the ground
+    return { t: best, target: hit, npc, wall: wall || (best < range && !hit && !npc), ground, point, missed: !hit && !npc && !wall && best >= range };
   }
   // the hero is hit by a villain (or a villain's blast)
   hitHero(dmg, dir, o = {}) {

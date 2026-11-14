@@ -27,7 +27,7 @@ export const HEROES = {
       ['Light', 'Armoured punches; in the air, palm shots'], ['Heavy', 'Charged palm blast'],
       ['1 Missiles', 'Six missiles that find the nearest villains'], ['2 Chest beam', 'A beam from the core for 2 s'],
       ['3 Pulse shield', 'A shockwave, then 6 s of a shield that stops most damage'], ['R Overload', 'The whole suit discharges: a blast 20 m wide'],
-      ['Space in the air', 'Fly: WASD, Space up, C down, Shift for speed; C on the ground to land'],
+      ['Space in the air', 'Fly: WASD where you look, Space up, C down; C at the ground lands'], ['Shift in flight', 'Afterburner: builds to 62 m/s and breaks the sound barrier'], ['Fast landing', 'A three-point landing with a shockwave'],
     ],
   },
   raiko: {
@@ -59,7 +59,7 @@ export const HEROES = {
     look: { kind: 'human', skin: '#e0ac7e', hair: '#16171c', hairStyle: 9, top: '#2f8f4e', bottom: '#3a3d44', accent: '#f08a24', outfit: 'plain', sleeves: 'none', legs: 'shorts', shoe: '#2a2c31', height: 1.74, build: 1.0, shape: 0.25 },
     moves: [
       ['Light', 'Stretch punch that reaches 7 m (Form 3: a giant fist)'], ['Heavy', 'A flurry of stretching punches'],
-      ['1 Rocket', 'Grab a far wall and sling yourself at it'], ['2 Next form', 'Form 2 steam (fast), Form 3 giant fist, Form 4 bounce, then back'],
+      ['1 Rocket', 'Grab a far point, snap to it and get slung on past it'], ['2 Next form', 'Form 2 steam (fast), Form 3 giant fist, Form 4 bounce, then back'],
       ['3 Balloon', 'Puff up for 3 s: attacks bounce off you'], ['R Form 5', '20 s: giant, glowing, and everything turns to rubber'],
     ],
   },
@@ -70,7 +70,7 @@ export const HEROES = {
     look: { kind: 'human', skin: '#e0ac7e', hair: '#2a1c14', hairStyle: 8, top: '#3a4a63', shirt: '#2b3038', bottom: '#2a2c33', accent: '#8fd3ff', outfit: 'coat', sleeves: 'long', legs: 'trousers', height: 1.9, build: 1.25, girth: 1.1, beard: true, boots: true, shape: 0.1 },
     moves: [
       ['Light', 'Hammer swings'], ['Heavy', 'Throw the hammer: it flies out and comes back'],
-      ['1 Lightning call', 'A bolt from the sky where you aim'], ['2 Hammer flight', 'Spin the hammer and fly a long way'],
+      ['1 Lightning call', 'A bolt from the sky where you aim'], ['2 Hammer flight', 'The hammer whirls and pulls you through the air for 2.4 s: steer with the camera, Space to lift'],
       ['3 Thunderclap', 'A ring of thunder that throws everyone back'], ['R Storm', '10 s: lightning strikes every villain nearby'],
     ],
   },
@@ -81,7 +81,7 @@ export const HEROES = {
     look: { kind: 'human', skin: '#a56b46', hair: '#16171c', hairStyle: 4, top: '#2a2c31', vest: '#3a3226', bottom: '#4a4a3a', accent: '#ffb347', outfit: 'vest', sleeves: 'none', legs: 'trousers', height: 2.0, build: 1.55, girth: 1.35, boots: true, shape: 0.0 },
     moves: [
       ['Light', 'Smashing punches'], ['Heavy', 'Ground slam'],
-      ['1 Leap', 'A huge jump to where you aim, landing in a crater'], ['2 Clap', 'A clap that sends a shockwave forward'],
+      ['1 Leap', 'A huge jump to where you aim (up to 80 m), landing in a crater'], ['2 Clap', 'A clap that sends a shockwave forward'],
       ['3 Grab and throw', 'Grab the nearest enemy and hurl it into the others'], ['R Rampage', '15 s giant: double damage, nothing knocks him down'],
       ['Rage', 'Fills as he fights; more rage, more damage'],
     ],
@@ -105,7 +105,7 @@ export const HEROES = {
     moves: [
       ['Light', 'Fast strikes'], ['Heavy', 'Spinning kick'],
       ['1 Spiral sphere', 'A sphere of wind in the hand: dash in and drill one enemy'], ['2 Clones', 'Three copies of you fight for 10 s'],
-      ['3 Substitute', 'Vanish in smoke and reappear behind, dodging for 2 s'], ['R Great sphere', 'A huge sphere thrown at the crosshair: a 9 m blast'],
+      ['3 Substitute', 'Vanish in smoke and reappear behind, dodging for 2 s'], ['Space in the air', 'A second jump off a puff of smoke'], ['R Great sphere', 'A huge sphere thrown at the crosshair: a 9 m blast'],
     ],
   },
   trine: {

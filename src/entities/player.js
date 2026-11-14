@@ -109,6 +109,7 @@ export class Player {
     } else animateRig(this.rig, dt, 'drive', 0);
     // energy: slow baseline burn, faster when sprinting
     this.energy = clamp(this.energy - dt * (0.03 * G.env.timeScale + (this.anim === 'run' ? 0.22 : this.anim === 'jog' ? 0.03 : 0)), 0, 100);
+    if (G.state.perks && G.state.perks.energy) this.energy = 100;   // code 7103: never tired
     if (this.energy < 15 && !this.lowWarned) { this.lowWarned = true; G.ui.toast('You are running on empty. Find something to eat.', 'warn'); }
     if (this.energy > 30) this.lowWarned = false;
   }
@@ -284,7 +285,8 @@ export class Player {
       if (!this.grounded) {
         this.landed = -this.vel.y; if (this.landed > 6.5 && !this.board) this.play('land', 0.16);   // how hard we came down
         if (this.fling) {   // a hero landing from a swing: fast or hard, a forward roll that keeps some of the speed; otherwise run out of it
-          this.fling = false; const h = Math.hypot(this.vel.x, this.vel.z), roll = G.heroes && G.heroes.on && (h > 15 || this.landed > 16), cap = roll ? 12 : 9;
+          const leap = this.fling === 'leap'; this.fling = false;
+          const h = Math.hypot(this.vel.x, this.vel.z), roll = G.heroes && G.heroes.on && !leap && (h > 15 || this.landed > 16), cap = roll ? 12 : leap ? 0 : 9;
           if (h > cap) { this.vel.x *= cap / h; this.vel.z *= cap / h; }
           if (roll) { this.rollT = 0.45; this.play('crouch', 0.45); if (G.fx) G.fx.dust(this.pos, 4, 0.6); if (G.audio) G.audio.thud(0.35); }
         }
