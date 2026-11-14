@@ -52,4 +52,5 @@ export default ({ mode }) => mode === 'share'
     plugins: [oneFile],
     build: { outDir: SHARE_DIR, emptyOutDir: true, assetsInlineLimit: () => true, cssCodeSplit: false, modulePreload: { polyfill: false }, chunkSizeWarningLimit: 6000, reportCompressedSize: false },
   }
-  : { plugins: [devShot], build: { chunkSizeWarningLimit: 1800 } };
+  // BASE_PATH: where the site lives, e.g. /NeoWorld/ on GitHub Pages (set by .github/workflows/pages.yml)
+  : { base: process.env.BASE_PATH || '/', plugins: [devShot], build: { chunkSizeWarningLimit: 1800 } };
