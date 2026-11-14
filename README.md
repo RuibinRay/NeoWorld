@@ -14,6 +14,14 @@ No story. Walk, talk, eat, work, ride, race, fly; the district keeps its own sch
 - **Reasons to cross the map:** a street race through Eastline, a boat race down the (now sunken) canal, street taxi shifts, crashes with traffic, a beach villa for sale and renting out your homes, a basketball shootout, and Skyhaven Stadium with skyball matches and the Expo grounds. Details in "Reasons to cross the map" below.
 - **Looks:** waves and glints on all the water, foam washing up the beach, a mountain range with Northgate Dam and its reservoir in the north, and concrete medians and guard rails on the highways and the ring road. Details in "Looks" below.
 
+## Play on the web
+
+**https://ruibinray.github.io/NeoWorld/**: plays in a desktop browser (Chrome, Safari, Edge or
+Firefox) with a keyboard and mouse or a gamepad. There are no touch controls. Each push to `main`
+rebuilds and republishes it (`.github/workflows/pages.yml`, about a minute). The web version keeps
+its own save in that browser; to bring progress across, use Pause ▸ Save to a file, then "Load a
+save file" on the title screen.
+
 ## Run
 
 ```bash
