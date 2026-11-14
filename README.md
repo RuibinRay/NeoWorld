@@ -563,11 +563,26 @@ resident's look is put away (and is what gets saved) until you choose **Go back 
 
 | Hero | Based on the kind of powers of | Light / heavy | 1 | 2 | 3 | R (ultimate) | Moving |
 |---|---|---|---|---|---|---|---|
-| **Strand**, web-slinging acrobat | a web-slinger | punch, punch, kick / yank the nearest enemy into a slam | line: pull an enemy in, or zip to a wall | snare: a sticky ball that ties up everyone it splashes | danger sense: 6 s of dodging every attack | line storm: every villain within 30 m tied up and pulled together | hold Space in the air to swing from a line; jump at a wall to run up it (W/S/A/D, Space to jump off, over the top at the edge) |
+| **Strand**, web-slinging acrobat | a web-slinger | punch, punch, kick / yank the nearest enemy into a slam | line: pull an enemy in, or zip to a wall | snare: a sticky ball that ties up everyone it splashes | danger sense: 6 s of dodging every attack | line storm: every villain within 30 m tied up and pulled together | hold Space to jump and swing, and keep holding to chain line after line; let go rising out of the arc for a boost; A/D steer; Shift in the air web-zips; C dives; hitting a wall runs up it (W keeps running, over the top at the edge; Space jumps off) |
 | **Forge**, armoured inventor | an armoured flyer | armoured punches (palm shots in the air) / charged palm blast | six homing missiles | 2 s chest beam | shockwave, then a 6 s shield | overload: a blast 20 m wide | Space in the air to fly: WASD, Space up, C down, Shift fast; C on the ground lands |
 | **Raiko**, lightning swordsman | a lightning swordsman | sword cuts / lightning thrust | thunder dash through everything for 14 m | fire breath for 1.6 s | swap places with an enemy, or blink to the spot | storm guardian: 12 s inside a giant guardian of light, huge sweeps and lightning arrows | |
 | **Sable**, the copy fighter | a copy fighter | blade cuts / spinning kick | lightning palm: charge, dash, one very hard hit | a pack of four hounds that pin villains | warp: a vortex swallows an enemy for 6 s | copy: the last villain move he saw, stronger (brute slam, gunner volley, drone rockets, Kurozan's club or storm breath) | |
 | **Rook**, rubber brawler | a rubber-bodied brawler | stretch punch 7 m / a flurry of stretching punches | rocket: grab a far wall and sling yourself at it | next form: 2 steam (fast), 3 giant fist, 4 bounce (25 s, then out of breath), back to base | balloon: 3 s of attacks bouncing off | Form 5: 20 s giant, glowing, everything turns to rubber | |
+
+**How Strand swings** (`systems/heroes.js`, after the way open-world web-swinging games are built:
+Treyarch's 2004 swing and Insomniac's from 2018). Each line lands on a real building, picked to suit
+where you are going: about 35° ahead of straight up, off to one side so you weave down the street
+(alternating hands), longer at speed, and never so long that the bottom of the arc would scrape
+the street (the line reels in to keep about a metre of air under you). The swing is a pendulum on a
+rope, bent for fun: gravity is heavier on the line for a snappy arc, the bottom of each arc adds
+speed, the sideways pull toward the anchor is turned back to your heading so you run straight down
+the street, and walls close beside you push you back to the middle. Speed you bring in (a fall, a
+dive) is turned along the arc instead of lost. Off the line your speed carries through the air and
+the keys only turn it; you run out of it when you land. Letting go late in the rise is the skill:
+on a 6 s run down a Midtown street holding Space chains five lines and covers 154 m, and timing the
+releases covers 206 m. The feel is sold by the camera (it trails further behind and the view widens
+by up to 16° with speed), streaks and wind, and the body: it hangs along the line, the hand on the
+anchor's side holds it, and the legs trail, tuck through the bottom and kick out on the way up.
 
 **Controls:** left click or **Z** light attack (a combo), right click or **X** heavy, **1 2 3**
 powers, **R** ultimate when the meter is full (landing hits fills it). The crosshair aims. On a

@@ -158,8 +158,9 @@ function tick(dt) {
   G.car.update(dt);
   p.update(dt);
   if (prof) t0 = lap('player', t0);
-  const fov0 = Settings.data.fov || 60, fovT = p.state === 'walk' && p.grounded && !p.firstPerson && p.speed > 5.8 ? fov0 + 5 : fov0;   // your chosen field of view; a sprint widens it a touch
-  if (p.state !== 'drive' && Math.abs(camera.fov - fovT) > 0.05) { camera.fov = damp(camera.fov, fovT, p.speed > 5.8 ? 3 : 6, dt); camera.updateProjectionMatrix(); }
+  const kick = G.heroes && G.heroes.on && !p.firstPerson ? G.heroes.fovKick || 0 : 0;   // a hero swinging or flying fast sees wider still
+  const fov0 = Settings.data.fov || 60, fovT = (p.state === 'walk' && p.grounded && !p.firstPerson && p.speed > 5.8 ? fov0 + 5 : fov0) + kick;   // your chosen field of view; a sprint widens it a touch
+  if (p.state !== 'drive' && Math.abs(camera.fov - fovT) > 0.05) { camera.fov = damp(camera.fov, fovT, p.speed > 5.8 || kick > 0.5 ? 3 : 6, dt); camera.updateProjectionMatrix(); }
   G.traffic.update(dt, G.elapsed);
   G.roads.update(dt);
   if (prof) t0 = lap('traffic', t0);

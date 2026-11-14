@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { G } from '../core/game.js';
 import { HEROES, HERO_IDS } from '../data/heroes.js';
-import { clamp, damp, dampAngle } from '../core/util.js';
+import { clamp, damp, dampAngle, angDelta } from '../core/util.js';
 import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
@@ -154,8 +154,8 @@ export class Heroes {
     if (!this.on) return;
     const p = G.player;
     this.endMove(); this.endPowers(); this.clearGear();
-    this.on = false; this.id = null;
-    p.look = { ...(this.ownLook || DEFAULT_LOOK) }; p.buildRig(); p.speedMul = 1; p.jumpV = 0; p.gravK = 1; p.camK = 1; p.rig.root.scale.setScalar(1);
+    this.on = false; this.id = null; this.speedK = 0; this.fovKick = 0; this.diving = false;
+    p.look = { ...(this.ownLook || DEFAULT_LOOK) }; p.buildRig(); p.speedMul = 1; p.jumpV = 0; p.gravK = 1; p.camK = 1; p.fling = false; p.rig.root.scale.setScalar(1);
     if (p.state === 'hero') p.state = 'walk';
     this.hud.style.display = 'none'; this.cross.style.display = 'none'; this.bossEl.style.display = 'none'; this.foeEl.style.display = 'none';
     if (G.villains) G.villains.heroOff();
@@ -175,7 +175,7 @@ export class Heroes {
     if (this.id === 'bulwark') { sc = this.ult > 0 ? 1.5 : 1 + (this.rage || 0) / 100 * 0.15; ck = this.ult > 0 ? 1.3 : 1; }
     if (this.tired > 0) sp *= 0.55;
     if (this.channel && this.channel.slow) sp *= this.channel.slow;
-    p.speedMul = sp; p.jumpV = jv; p.gravK = gk; p.camK = ck;
+    p.speedMul = sp; p.jumpV = jv; p.gravK = gk; p.camK = ck * (1 + (this.speedK || 0) * 0.18);   // the camera drops back a little at speed
     const b = this.balloon > 0 ? 1.45 : 1; p.rig.root.scale.set(sc * b, sc * (this.balloon > 0 ? 1.15 : 1), sc * b);
   }
   // the hero's gear on top of the body: masks, armour parts, blades
@@ -245,7 +245,7 @@ export class Heroes {
   centre(out = this.u) { const p = G.player; return out.set(p.pos.x, p.pos.y + 1.0 * (p.rig ? p.rig.root.scale.y : 1), p.pos.z); }
   chest(out = V()) { const p = G.player, s = p.rig.root.scale.y; return out.set(p.pos.x, p.pos.y + 1.3 * s, p.pos.z); }
   hand(out = V()) { const r = G.player.rig; r.root.updateMatrixWorld(true); return r.elbR.localToWorld(out.set(0, -0.36, 0.03)); }
-  handL(out = V()) { const r = G.player.rig; return r.elbL.localToWorld(out.set(0, -0.36, 0.03)); }
+  handL(out = V()) { const r = G.player.rig; r.root.updateMatrixWorld(true); return r.elbL.localToWorld(out.set(0, -0.36, 0.03)); }
   fwd(out = V(), pitch = 0.6) { const p = G.player; return out.set(Math.sin(p.yaw), -Math.sin(p.camPitch) * pitch, Math.cos(p.yaw)).normalize(); }
   faceAim(secs = 0.4) { const p = G.player; p.yaw = p.camYaw; p.aimT = secs; }
   // what the crosshair is on: from the camera, past the hero
@@ -331,7 +331,8 @@ export class Heroes {
     this.stepProjectiles(dt); this.stepHounds(dt, t);
     if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); this.drawHud(dt); return; }
     this.applyStats(); if (was > 0 && this.balloon <= 0) this.applyStats();
-    this.visuals(dt, t); this.passives(dt, t);
+    this.visuals(dt, t); this.passives(dt, t); this.speedFeel(dt);
+    this.airT = p.grounded ? 0 : (this.airT || 0) + dt;
     const free = (p.state === 'walk' || p.state === 'hero') && !G.ui.menu && !(G.phone && G.phone.open) && !G.minigame && !G.ui.titleOpen;
     if (free) {
       // movement powers that start from walking
@@ -340,6 +341,7 @@ export class Heroes {
         else if (this.id === 'forge' && inp.pressed('Space')) this.startMove('fly', {});
         if (this.id === 'strand' && p.state === 'walk') this.tryWall();
       }
+      if (this.id === 'strand') this.strandAir(dt, inp);
       if (inp.pressed('Mouse0') || inp.pressed('KeyZ')) this.use('light');
       if (inp.pressed('Mouse2') || inp.pressed('KeyX')) this.use('heavy');
       for (const s of SLOTS) if (inp.pressed(KEYS[s])) this.use(s);
@@ -417,41 +419,159 @@ export class Heroes {
     if (p.pos.y <= g) { p.pos.y = g; return true; }
     return false;
   }
-  // Strand: a line to the highest wall ahead, then a pendulum
-  findAnchor() {
-    const p = G.player, col = G.colliders, o = V().set(p.pos.x, p.pos.y + 1.6, p.pos.z), cy = p.camYaw; let best = null, bs = -1e9;
-    for (const yo of [0, 0.45, -0.45, 0.9, -0.9]) for (const el of [0.9, 0.7, 1.12, 0.5, 1.35]) {
-      const yaw = cy + yo, d = V().set(Math.sin(yaw) * Math.cos(el), Math.sin(el), Math.cos(yaw) * Math.cos(el)), L = col.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 85);
-      if (L >= 85 || L < 7) continue;
-      const q = o.clone().addScaledVector(d, L); if (q.y < o.y + 5) continue;
-      const sc = -Math.abs(yo) * 9 - Math.abs(el - 0.85) * 7 + Math.min(L, 45) * 0.25; if (sc > bs) { bs = sc; best = { a: q, L }; }
+  // ---- Strand's swinging ---------------------------------------------------------------------------------
+  // Built the way open-world web-swinging games build it (Treyarch's 2004 swing, Insomniac's from 2018):
+  // the line always lands on a real building, picked to suit where you are going, not just the tallest
+  // thing in view; the swing is a pendulum on a rope, bent for fun: heavier gravity for a snappy arc, a
+  // push through the bottom so each swing builds speed, a pull that keeps you running straight down the
+  // street instead of curling round the anchor, the line shortening so you never scrape the street, and
+  // walls pushing you off. Let go as you rise out of the arc for a boost; keep holding and the next line
+  // goes out by itself. Shift in the air zips you forward on a line; C dives.
+  // Where you mean to go: where the camera looks, turned by A/D.
+  intent(inp) { const mx = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0); return G.player.camYaw - Math.atan(mx); }
+  // the heading for the next line: at speed, the way you are moving, bent toward where you mean to go
+  swingHead(inp) {
+    const p = G.player, hs = Math.hypot(p.vel.x, p.vel.z), want = this.intent(inp);
+    if (hs < 8) return want;
+    const mov = Math.atan2(p.vel.x, p.vel.z), d = angDelta(mov, want);
+    return Math.abs(d) > 2 ? want : mov + d * 0.65;
+  }
+  // a point on a building ahead and above, to one side of the heading (alternating hands, so you
+  // weave down the street), high enough that the bottom of the arc clears whatever is under it
+  findAnchor(head, side = 0) {
+    const p = G.player, col = G.colliders, s = p.rig.root.scale.y, H = 1.5 * s, ox = p.pos.x, oy = p.pos.y + H, oz = p.pos.z;
+    const fx = Math.sin(head), fz = Math.cos(head), rx = -fz, rz = fx;
+    const hs = Math.hypot(p.vel.x, p.vel.z), gHere = col.groundAt(ox, oz, p.pos.y + 0.3, 0.5, 0.3);
+    let best = null, bs = -1e9;
+    for (let i = -5; i <= 5; i++) for (const el of [0.55, 0.75, 0.95, 1.15, 1.35]) {
+      const yaw = head + i * 0.22, ce = Math.cos(el), dx = Math.sin(yaw) * ce, dy = Math.sin(el), dz = Math.cos(yaw) * ce;
+      const L = col.raycast(ox, oy, oz, dx, dy, dz, 80);
+      if (L >= 80 || L < 8) continue;
+      const qx = ox + dx * L, qy = oy + dy * L, qz = oz + dz * L, up = qy - oy;
+      const fwd = (qx - ox) * fx + (qz - oz) * fz, lat = (qx - ox) * rx + (qz - oz) * rz;
+      if (up < 6 || fwd < 2) continue;
+      // the bottom of the arc is beside the wall the line hit: the line can only be as long as the drop to the ground there allows
+      const floor = Math.max(gHere, col.groundAt(qx - Math.sin(yaw) * 1.6, qz - Math.cos(yaw) * 1.6, p.pos.y + 0.3, 0.5, 0.3));
+      const Lmax = qy - floor - H - 1.2;
+      if (Lmax < 7) continue;
+      const Lr = Math.min(L, Lmax), ang = Math.atan2(fwd, up), al = Math.abs(lat);
+      let sc = -Math.abs(ang - 0.65) * 9                                      // about 35-40 degrees ahead of straight up: a long, fast arc
+        - Math.abs(i) * 0.22 * 5                                              // close to the heading
+        - Math.abs(Lr - (26 + hs * 0.35)) * 0.12                              // longer lines at speed
+        - (L - Lr) * 0.3                                                      // a line that has to reel in a lot is a worse line
+        - Math.max(0, 2.5 - al) * 1.2 - Math.max(0, al - 14) * 0.5;          // to the side, not straight into a wall
+      if (side && Math.sign(lat) === side) sc += 3.5;
+      if (sc > bs) { bs = sc; best = { a: new THREE.Vector3(qx, qy, qz), L, Lmax, side: lat >= 0 ? 1 : -1 }; }
     }
     return best;
   }
-  startSwing() {
-    const A = this.findAnchor();
-    if (!A) { if (!(this.cd.noAnchor > 0)) { G.ui.toast('Nothing tall enough to swing from here.', 'info'); this.cd.noAnchor = 4; } return; }
-    const p = G.player; this.startMove('swing', { a: A.a, L: A.L * 0.9 });
-    this.mv.rope = G.fx.beam((v) => this.hand(v), A.a, '#e8fbff', 0.025, 1e9, false); this.sound('web');
-    if (p.vel.y < -4) p.vel.y *= 0.5;
+  startSwing(auto = false) {
+    const p = G.player, inp = G.input, head = this.swingHead(inp), A = this.findAnchor(head, -(this.lastSide || -1));
+    if (!A) { if (!auto && (this.airT || 0) > 0.12 && !(this.cd.noAnchor > 0)) { G.ui.toast('Nothing tall enough to swing from here.', 'info'); this.cd.noAnchor = 4; } return false; }
+    const s = p.rig.root.scale.y, r = V().set(A.a.x - p.pos.x, A.a.y - p.pos.y - 1.5 * s, A.a.z - p.pos.z), L = r.length(); r.divideScalar(L);
+    // moving away from the anchor (a fall, a dive): that speed is turned along the arc instead of lost
+    const sp = p.vel.length(), vr = p.vel.dot(r);
+    if (vr < 0 && sp > 1) { p.vel.addScaledVector(r, -vr); const t = p.vel.length(); if (t > 0.3) p.vel.multiplyScalar((sp * 0.92) / t); }
+    this.lastSide = A.side; this.zips = 2;
+    this.startMove('swing', { a: A.a, L, Lwant: Math.min(L * 0.93, A.Lmax), head, side: A.side, ph: -1 });
+    // the line shoots out from the hand and sticks a moment later
+    const sd = A.side, t0 = G.elapsed, from = (v) => (sd < 0 ? this.handL(v) : this.hand(v));
+    this.mv.rope = G.fx.beam(from, (v) => { const k = Math.min(1, (G.elapsed - t0) / 0.07); return k >= 1 ? v.copy(A.a) : from(v).lerp(A.a, k); }, '#e8fbff', 0.025, 1e9, false);
+    this.later(0.07, () => G.fx.spark(A.a, '#f2fbff', 6, 3, 0.25, 0.1, 2));
+    this.sound('web');
+    return true;
   }
   swingStep(dt, inp, col) {
-    const p = G.player, mv = this.mv, a = mv.a;
-    if (!inp.down('Space')) { p.vel.y += 3.5; this.endMove(); return; }
-    p.vel.y -= 21 * dt;
-    const cy = p.camYaw, fx = Math.sin(cy), fz = Math.cos(cy), mz = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), mx = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0);
-    p.vel.x += (fx * mz - fz * mx) * 12 * dt; p.vel.z += (fz * mz + fx * mx) * 12 * dt;
-    const sp = p.vel.length(); if (sp > 40) p.vel.multiplyScalar(40 / sp);
-    p.pos.addScaledVector(p.vel, dt);
-    const bx = p.pos.x - a.x, by = p.pos.y + 1.5 - a.y, bz = p.pos.z - a.z, L = Math.hypot(bx, by, bz);
-    if (L > mv.L) { const k = mv.L / L; p.pos.set(a.x + bx * k, a.y + by * k - 1.5, a.z + bz * k); const ux = bx / L, uy = by / L, uz = bz / L, vr = p.vel.x * ux + p.vel.y * uy + p.vel.z * uz; if (vr > 0) { p.vel.x -= ux * vr; p.vel.y -= uy * vr; p.vel.z -= uz * vr; } }
-    mv.L = Math.max(6, mv.L - dt * 2);
-    const before = p.pos.clone();
-    if (this.collide(col)) { this.endMove(false); p.grounded = true; return; }
-    if (before.distanceToSquared(p.pos) > 0.0004 && this.tryWall(true)) return;   // swung into a wall: grab on
-    if (Math.hypot(p.vel.x, p.vel.z) > 1) p.yaw = dampAngle(p.yaw, Math.atan2(p.vel.x, p.vel.z), 8, dt);
-    p.anim = 'swing';
-    if (G.fx && Math.random() < dt * 20) G.fx.glow.emit(p.pos.x, p.pos.y + 1, p.pos.z, 0, 0, 0, '#3fe0c5', 0.3, 0.12, 0.02, 0, 0);
+    const p = G.player, mv = this.mv, a = mv.a, H = 1.5 * p.rig.root.scale.y;
+    if (!inp.down('Space')) { this.letGo(true); return; }
+    // steering: A/D (and the camera while W is held) turn the way you are heading; S brakes
+    const mz = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), mx = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0);
+    if (mx || mz > 0) mv.head = dampAngle(mv.head, this.intent(inp), 2.4, dt);
+    const hx = Math.sin(mv.head), hz = Math.cos(mv.head);
+    // the line pulls in to the length it wants, faster when the street is coming up
+    const gUnder = col.groundAt(p.pos.x, p.pos.z, p.pos.y + 0.3, 0.5, 0.3);
+    mv.Lwant = Math.min(mv.Lwant, a.y - H - gUnder - 1.2);
+    if (mv.L > mv.Lwant) mv.L = Math.max(mv.Lwant, mv.L - Math.max(12, (mv.L - mv.Lwant) * 5, p.pos.y - gUnder < 3 && p.vel.y < 0 ? 30 : 0) * dt);
+    mv.L = Math.max(5, mv.L);
+    // walls close to either side push you back toward the middle of the street
+    const hv0 = Math.hypot(p.vel.x, p.vel.z);
+    if (hv0 > 4) for (const sd of [-1, 1]) { const sx = (-p.vel.z / hv0) * sd, sz = (p.vel.x / hv0) * sd, d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, sx, 0, sz, 3); if (d < 3) { p.vel.x -= sx * (3 - d) * 9 * dt; p.vel.z -= sz * (3 - d) * 9 * dt; } }
+    const n = Math.min(6, Math.max(1, Math.ceil((p.vel.length() * dt) / 0.35))), h = dt / n, before = this._before || (this._before = V());
+    for (let i = 0; i < n; i++) {
+      p.vel.y -= 28 * h;                                                                 // heavier than a fall: a snappy arc
+      const rx = a.x - p.pos.x, ry = a.y - p.pos.y - H, rz = a.z - p.pos.z, D = Math.hypot(rx, ry, rz) || 1, sp = p.vel.length();
+      const low = Math.max(0, ry / D);                                                   // 1 with the line straight up: the bottom of the arc
+      if (sp > 0.5 && sp < 46) p.vel.multiplyScalar(1 + (11 * low * low * low * h) / sp);   // a push through the bottom: swings build speed
+      const hv = Math.hypot(p.vel.x, p.vel.z);
+      if (hv > 2) { const cur = Math.atan2(p.vel.x, p.vel.z), d = angDelta(cur, mv.head); if (Math.abs(d) < 1.6) { const b = cur + clamp(d, -2.6 * h, 2.6 * h); p.vel.x = Math.sin(b) * hv; p.vel.z = Math.cos(b) * hv; } }   // straight down the street, not round the anchor
+      if (mz > 0) { p.vel.x += hx * 5 * h; p.vel.z += hz * 5 * h; } else if (mz < 0) p.vel.multiplyScalar(1 - 0.9 * h);
+      p.pos.addScaledVector(p.vel, h);
+      // the rope: never longer than the line; only the speed away from the anchor is taken out
+      const bx = p.pos.x - a.x, by = p.pos.y + H - a.y, bz = p.pos.z - a.z, B = Math.hypot(bx, by, bz);
+      if (B > mv.L) { const k = mv.L / B; p.pos.set(a.x + bx * k, a.y + by * k - H, a.z + bz * k); const ox = bx / B, oy = by / B, oz = bz / B, vr = p.vel.x * ox + p.vel.y * oy + p.vel.z * oz; if (vr > 0) { p.vel.x -= ox * vr; p.vel.y -= oy * vr; p.vel.z -= oz * vr; } }
+      before.copy(p.pos);
+      if (this.collide(col)) { this.endMove(false); p.grounded = true; p.fling = false; return; }
+      if (before.distanceToSquared(p.pos) > 0.0004 && this.tryWall(true)) return;      // swung into a wall: run up it
+    }
+    // the body hangs along the line, the hand on the anchor's side holds it, and the legs follow the arc
+    const hv = Math.hypot(p.vel.x, p.vel.z);
+    if (hv > 1) p.yaw = dampAngle(p.yaw, Math.atan2(p.vel.x, p.vel.z), 8, dt);
+    const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw), rx = a.x - p.pos.x, ry = a.y - p.pos.y - H, rz = a.z - p.pos.z, R = Math.hypot(rx, ry, rz) || 1;
+    const fwd = (rx * fx + rz * fz) / R, lat = (rz * fx - rx * fz) / R, up = ry / R;
+    mv.ph = clamp(-fwd / 0.75, -1, 1);                                                    // -1 dropping into the arc, 0 the bottom, 1 rising out of it
+    p.tiltT = { x: clamp(Math.atan2(fwd, up) * 0.85, -1, 1), z: clamp(Math.atan2(lat, up) * 0.7, -0.6, 0.6) };
+    p.rig.swing = { side: mv.side, ph: mv.ph }; p.anim = 'webswing';
+    // keep holding: past the rise (or as it runs out of speed) the next line goes out by itself
+    if (mv.t > 0.3 && mv.ph > 0.2 && (mv.ph >= 0.97 || p.vel.y < 1.5)) { this.letGo(false); if (inp.down('Space')) this.startSwing(true); }
+  }
+  // off the line, keeping the speed. Let go yourself on the way up out of the arc for a boost; the
+  // later in the rise (before the line would go by itself), the bigger it is.
+  letGo(byPlayer) {
+    const p = G.player, ph = this.mv ? this.mv.ph : -1, rising = p.vel.y > 0;
+    this.endMove(); p.fling = true;
+    if (byPlayer && rising && ph >= 0.4) {
+      const hv = Math.hypot(p.vel.x, p.vel.z), k = hv > 1 ? Math.min(1.12, 48 / hv) : 1;
+      p.vel.x *= k; p.vel.z *= k; p.vel.y += 8; if (p.vel.length() > 50) p.vel.setLength(50);
+      p.play('spin', 0.38); G.fx.ring(this.centre(), '#3fe0c5', 0.4, 3.5, 0.35); G.fx.spark(this.centre(), '#e8fbff', 10, 4, 0.35, 0.1, 2);
+      if (G.sfx) G.sfx.play('whoosh', null, 0.9);
+      this.perfect = (this.perfect || 0) + 1;
+    } else if (byPlayer && rising && ph > 0.05) p.vel.y += 4;
+    else p.vel.y += byPlayer ? 1.5 : 2.5;
+  }
+  // Shift in the air: a line to whatever is ahead and a hard yank along it (twice, then swing, land or touch a wall)
+  webZip() {
+    const p = G.player, d = G.camera.getWorldDirection(V()); d.y = clamp(d.y + 0.12, -0.2, 0.5); d.normalize();
+    const o = this.chest(), L = G.colliders.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 50), to = o.clone().addScaledVector(d, Math.min(L, 50));
+    if (this.mv) this.endMove();
+    const sp = Math.min(46, Math.max(p.vel.length(), 16) + 9);
+    p.vel.copy(d).multiplyScalar(sp); p.vel.y += 3; p.fling = true; p.grounded = false;
+    p.yaw = Math.atan2(d.x, d.z); p.play('zip', 0.3);
+    G.fx.beam((v) => this.hand(v), to, '#e8fbff', 0.022, 0.28); G.fx.beam((v) => this.handL(v), to, '#e8fbff', 0.022, 0.28);
+    this.sound('web'); if (G.sfx) G.sfx.play('zip', null, 0.8);
+    this.zips = (this.zips ?? 2) - 1; this.cd.webZip = 0.35;
+  }
+  // Strand in the air on foot: Shift zips, C dives, landing or a wall gives the zips back
+  strandAir(dt, inp) {
+    const p = G.player, air = !p.grounded && !p.swim;
+    if (p.grounded || (this.mv && this.mv.kind === 'wall')) this.zips = 2;
+    const swinging = this.mv && this.mv.kind === 'swing';
+    if ((inp.pressed('ShiftLeft') || inp.pressed('ShiftRight')) && ((p.state === 'walk' && air) || swinging) && (this.zips ?? 2) > 0 && !(this.cd.webZip > 0)) this.webZip();
+    this.diving = p.state === 'walk' && air && inp.down('KeyC');
+    if (this.diving) {
+      p.vel.y = Math.max(-50, p.vel.y - 30 * dt); p.fling = true; p.play('fly', 0.12); p.tiltT = { x: 0.5, z: 0 };   // head down: fall fast, then swing out of it for the speed
+    }
+  }
+  // speed you can feel: a wider view, the camera dropping back, wind, and streaks rushing past
+  speedFeel(dt) {
+    const p = G.player, v = p.vel.length(), moving = !p.grounded && (p.state === 'hero' || p.fling);
+    this.speedK = damp(this.speedK || 0, moving ? clamp((v - 12) / 30, 0, 1) : 0, 3, dt);
+    this.fovKick = this.speedK * 16;
+    const k = this.speedK;
+    if (k > 0.15 && Math.random() < dt * 34 * k) {
+      const c = G.camera.position, f = this.v.copy(p.vel).normalize(), a = this.w.set(p.pos.x + (Math.random() - 0.5) * 7 + f.x * 6, p.pos.y + 1 + (Math.random() - 0.5) * 5 + f.y * 6, p.pos.z + (Math.random() - 0.5) * 7 + f.z * 6);
+      if (a.distanceToSquared(c) > 4) G.fx.beam(a.clone(), a.clone().addScaledVector(p.vel, -0.05), '#cfe9ff', 0.014, 0.14);
+    }
+    if (this.id === 'strand' && G.audio && Math.random() < dt * 7 * k) G.audio.burst(0.22, 0.01 + k * 0.03, 350 + k * 700, 'bandpass');
   }
   // Strand on a wall: W/S up and down, A/D along it, Space to jump off; over the top at the edge
   tryWall(force) {
@@ -463,16 +583,19 @@ export class Heroes {
     if (col.raycast(p.pos.x, p.pos.y + 3.2, p.pos.z, dx, 0, dz, 1.6) >= 1.6) return false;           // a low wall: vault it instead
     const hit = V().set(p.pos.x + dx * near, p.pos.y + 1.1, p.pos.z + dz * near), n = G.damage.normalAt(hit, V().set(dx, 0, dz));
     if (Math.abs(n.y) > 0.5) return false;
-    this.startMove('wall', { n: n.setY(0).normalize() }); p.vel.set(0, 0, 0); p.yaw = Math.atan2(-n.x, -n.z);
+    // hitting the wall fast turns that speed into a run straight up it
+    this.startMove('wall', { n: n.setY(0).normalize(), run: this.id === 'strand' && hs > 7 ? Math.min(20, hs * 0.6) : 0 }); p.vel.set(0, 0, 0); p.yaw = Math.atan2(-n.x, -n.z);
     return true;
   }
   wallStep(dt, inp, col) {
-    const p = G.player, mv = this.mv, n = mv.n;
-    if (inp.pressed('Space')) { p.vel.set(n.x * 7, 7.5, n.z * 7); p.yaw = Math.atan2(n.x, n.z); this.endMove(); return; }
+    const p = G.player, mv = this.mv, n = mv.n, run = mv.run || 0;
+    if (inp.pressed('Space')) { p.vel.set(n.x * (7 + run * 0.25), 7.5 + run * 0.35, n.z * (7 + run * 0.25)); p.yaw = Math.atan2(n.x, n.z); this.endMove(); p.fling = true; return; }
     const up = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), side = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0), fast = inp.down('ShiftLeft') ? 1.8 : 1;
     const tx = n.z, tz = -n.x;   // along the wall, to the right as you face it
-    p.pos.y += up * 6 * fast * dt; p.pos.x += tx * side * 4 * fast * dt; p.pos.z += tz * side * 4 * fast * dt;
-    p.rig.climbPh = (p.rig.climbPh || 0) + (Math.abs(up) + Math.abs(side)) * dt * 7;
+    p.pos.y += (up * 6 * fast + run) * dt; p.pos.x += tx * side * 4 * fast * dt; p.pos.z += tz * side * 4 * fast * dt;
+    // the run up the wall: held by W at a steady pace, otherwise it slows to a climb
+    if (run > 0 || (up > 0 && this.id === 'strand' && mv.t < 0.2)) mv.run = up > 0 && this.id === 'strand' ? Math.max(Math.min(8, run + 40 * dt), run - 6 * dt) : Math.max(0, run - 16 * dt);
+    p.rig.climbPh = (p.rig.climbPh || 0) + (Math.abs(up) + Math.abs(side) + (run > 0 ? 2.5 : 0)) * dt * 7;
     p.yaw = Math.atan2(-n.x, -n.z); p.vel.set(0, 0, 0);
     const d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, -n.x, 0, -n.z, 2.5);
     if (d > 2.2) { this.endMove(); return; }                                                  // round a corner or off the edge
@@ -480,7 +603,11 @@ export class Heroes {
     // the top: nothing in front at head height
     if (col.raycast(p.pos.x, p.pos.y + 1.9, p.pos.z, -n.x, 0, -n.z, 1.4) >= 1.4) {
       const tx2 = p.pos.x - n.x * 0.9, tz2 = p.pos.z - n.z * 0.9, top = col.groundAt(tx2, tz2, p.pos.y + 2.6, 0, 0.26);
-      if (top > p.pos.y + 0.5) { this.mv = null; p.startClimb(tx2, top, tz2, 0.4, false); return; }
+      if (top > p.pos.y + 0.5) {
+        // still running: vault off the edge into the air over the roof; otherwise pull up onto it
+        if (run > 4) { this.endMove(); p.vel.set(-n.x * 5, Math.max(11, run * 0.9), -n.z * 5); p.fling = true; p.play('spin', 0.35); this.sound('swish'); return; }
+        this.mv = null; p.startClimb(tx2, top, tz2, 0.4, false); return;
+      }
     }
     const g = col.groundAt(p.pos.x, p.pos.z, p.pos.y + 0.3, 0.5, 0.26);
     if (p.pos.y <= g + 0.02 && up < 0) { p.pos.y = g; this.endMove(false); return; }
@@ -517,7 +644,10 @@ export class Heroes {
     }
     if (L < 0.9 || mv.t > 3 || (hitGround && mv.t > 0.15)) {
       const end = mv.onEnd; this.endMove(!hitGround);
-      if (end) end(); else if (mv.wallN && this.id === 'strand') { this.startMove('wall', { n: mv.wallN }); } else { p.vel.set(-dx / L * 4, 6, -dz / L * 4); }
+      const hl = Math.hypot(dx, dz) || 1;
+      if (end) end();
+      else if (this.id === 'strand' && !hitGround && G.input.down('Space')) { p.vel.set(dx / hl * 9, 16, dz / hl * 9); p.fling = true; p.play('spin', 0.35); this.sound('swish'); }   // Space held as the line arrives: launch off the point, up and on
+      else if (mv.wallN && this.id === 'strand') { this.startMove('wall', { n: mv.wallN }); } else { p.vel.set(-dx / L * 4, 6, -dz / L * 4); }
     }
   }
   // a straight dash that hits everything along the way
