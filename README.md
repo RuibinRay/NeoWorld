@@ -592,6 +592,25 @@ releases covers 206 m. The feel is sold by the camera (it trails further behind 
 by up to 16° with speed), streaks and wind, and the body: it hangs along the line, the hand on the
 anchor's side holds it, and the legs trail, tuck through the bottom and kick out on the way up.
 
+**Unlocking heroes.** Strand, Forge and Raiko are open from the start; the others unlock two at a
+time as you finish the Hero Hall missions (The Three Storms): Sable and Rook after mission 1, Brann
+and Bulwark after 2, Warden and Kitsu after 3, Trine and Ember after 4. A hero you have already
+played stays unlocked. Locked heroes show greyed out with a lock in the Hero Hall.
+
+**Code 7103** (pause menu ▸ Redeem a code): unlimited money (the wallet stays at ◈9,999,999 whatever
+you buy or are fined), unlimited energy, and every hero unlocked. It is saved with your progress and
+can be switched off in the same menu. Being a single-player browser game, the code is in the game's
+script, so anyone who reads the source can find it.
+
+**Moving as the other heroes.** Forge flies where the camera looks; Shift is an afterburner that
+spools up to 62 m/s and sets off a sonic boom past 45 m/s, the armour banks into turns and pitches
+into dives, the boots leave contrails, and a fast arrival is a three-point landing with a shockwave.
+Brann's hammer flight lasts 2.4 s and is steered with the camera (Space lifts), the hammer whirling
+overhead, and he flies on with his speed when it ends. Rook's rocket snaps him to a point and slings
+him on past it (up a wall, if he grabbed one). Bulwark's leap reaches 80 m and lands where you aim
+(the air no longer slows it). Kitsu has a second jump in the air. Aiming at the open street now lands
+on it (the crosshair ray used to pass under the ground), which helps every power aimed at the ground.
+
 **Controls:** left click or **Z** light attack (a combo), right click or **X** heavy, **1 2 3**
 powers, **R** ultimate when the meter is full (landing hits fills it). The crosshair aims. On a
 gamepad in Hero Mode: RB light, LB heavy, the d-pad up/right/down for 1/2/3 and left for R.

@@ -45,7 +45,10 @@ const SIG = {
   bulwark: ['Earthquake', 'nova', { r: 13, dmg: 55, knock: 16, up: 8, color: '#ffb347', quake: true }], warden: ['Shield wall', 'nova', { r: 7, dmg: 10, knock: 20, color: '#5fd6c2', block: 4 }],
   kitsu: ['Clone barrage', 'clones', { n: 6, t: 6 }], trine: ['Dragon cut', 'dash', { dist: 26, dmg: 70, color: '#ff6f8a' }], ember: ['Fire tornado', 'nova', { r: 8, dmg: 40, kind: 'fire', color: '#ff7a1a', fire: true }],
 };
-const COPY_NAMES = { quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', rockets: 'Rocket swarm (drone)', storm: 'Storm breath (Kurozan)', club: 'Club quake (Kurozan)' };
+// Which Hero Hall missions (The Three Storms) must be done before a hero can be chosen. A hero you have
+// already played stays unlocked, and code 7103 unlocks them all.
+const UNLOCK = { strand: 0, forge: 0, raiko: 0, sable: 1, rook: 1, brann: 2, bulwark: 2, warden: 3, kitsu: 3, trine: 4, ember: 4 };
+const COPY_NAMES ={ quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', rockets: 'Rocket swarm (drone)', storm: 'Storm breath (Kurozan)', club: 'Club quake (Kurozan)' };
 
 export class Heroes {
   constructor() {
@@ -101,10 +104,17 @@ export class Heroes {
         { label: 'Close', onPick: () => {} },
       ] });
   }
+  // ---- unlocking heroes: by Hero Hall missions, or code 7103 ----------------------------------------------
+  unlocked(id) { const s = this.st; return !!(G.state.perks && G.state.perks.heroes) || !!s.used[id] || (s.hm || 0) >= (UNLOCK[id] || 0); }
+  lockText(id) { const n = UNLOCK[id] || 0; return `Unlocks after hero mission ${n}: ${MISSIONS[n - 1].name}`; }
   heroMenu(pick = (id) => this.become(id), title = 'Choose a hero') {
-    const card = (id) => { const h = HEROES[id], img = artUrl(`hero-${id}.jpg`), lv = this.level(id); return `<div class="hero-row">${img ? `<img src="${img}" alt="" style="border-color:${h.color}">` : ''}<p><b style="color:${h.color}">${h.name}</b> <span style="color:var(--dim)">· ${h.title} · level ${lv}</span><br><small>${h.blurb}</small></p></div>`; };
-    G.ui.openMenu({ title, who: 'Hero Hall', wide: true, html: HERO_IDS.map(card).join(''),
-      options: [...HERO_IDS.map((id) => ({ label: `${this.on && this.id === id ? '✓ ' : ''}${HEROES[id].name}`, desc: HEROES[id].title, onPick: () => pick(id) })), { label: 'Back', onPick: () => this.menu() }] });
+    const card = (id) => { const h = HEROES[id], img = artUrl(`hero-${id}.jpg`), lv = this.level(id), open = this.unlocked(id); return `<div class="hero-row" style="${open ? '' : 'opacity:0.45;filter:grayscale(1)'}">${img ? `<img src="${img}" alt="" style="border-color:${h.color}">` : ''}<p><b style="color:${h.color}">${open ? '' : '🔒 '}${h.name}</b> <span style="color:var(--dim)">· ${h.title} · ${open ? `level ${lv}` : 'locked'}</span><br><small>${open ? h.blurb : this.lockText(id)}</small></p></div>`; };
+    const open = HERO_IDS.filter((id) => this.unlocked(id)).length;
+    G.ui.openMenu({ title, who: `Hero Hall · ${open} of ${HERO_IDS.length} heroes unlocked`, wide: true, html: HERO_IDS.map(card).join(''),
+      options: [...HERO_IDS.map((id) => this.unlocked(id)
+        ? { label: `${this.on && this.id === id ? '✓ ' : ''}${HEROES[id].name}`, desc: HEROES[id].title, onPick: () => pick(id) }
+        : { label: `🔒 ${HEROES[id].name}`, desc: this.lockText(id), disabled: true, why: `${HEROES[id].name} is locked. ${this.lockText(id)} (Hero Hall ▸ Hero missions).` }),
+      { label: 'Back', onPick: () => this.menu() }] });
   }
   bossMenu() {
     const s = this.st;
@@ -131,6 +141,7 @@ export class Heroes {
     const p = G.player;
     if (p.state === 'sit') p.stand();
     if (p.state !== 'walk' && p.state !== 'hero') { G.ui.toast('Finish what you are doing first.', 'warn'); return; }
+    if (!this.unlocked(id)) { G.ui.toast(`${HEROES[id].name} is locked. ${this.lockText(id)}.`, 'warn'); return; }
     if (!this.on) this.ownLook = { ...p.look };
     if (this.on && this.id) this.saved[this.id] = { hp: this.hp / this.max, meter: this.meter };
     this.endMove(); this.endPowers(); this.id = id; this.on = true;
@@ -342,6 +353,14 @@ export class Heroes {
         if (this.id === 'strand' && p.state === 'walk') this.tryWall();
       }
       if (this.id === 'strand') this.strandAir(dt, inp);
+      // Kitsu: a second jump in the air, off a puff of smoke
+      if (this.id === 'kitsu') {
+        if (p.grounded) this.dj = false;
+        else if (p.state === 'walk' && !p.swim && inp.pressed('Space') && !this.dj && (this.airT || 0) > 0.08) {
+          this.dj = true; p.vel.y = Math.max(p.vel.y, 0) + 9.5; const hs = Math.hypot(p.vel.x, p.vel.z); if (hs > 0.5) { p.vel.x *= 1.15; p.vel.z *= 1.15; }
+          p.play('spin', 0.35); G.fx.smoke(V().set(p.pos.x, p.pos.y, p.pos.z), 3, '#e8eef4', 1, 0.6); G.fx.ring(V().set(p.pos.x, p.pos.y, p.pos.z), '#59c8ff', 0.2, 1.6, 0.25); this.sound('swish');
+        }
+      }
       if (inp.pressed('Mouse0') || inp.pressed('KeyZ')) this.use('light');
       if (inp.pressed('Mouse2') || inp.pressed('KeyX')) this.use('heavy');
       for (const s of SLOTS) if (inp.pressed(KEYS[s])) this.use(s);
@@ -646,23 +665,65 @@ export class Heroes {
     p.anim = 'climb';
   }
   // Forge in flight
+  // Forge in flight. WASD flies where the camera looks, Space climbs, C drops (C at the ground lands).
+  // Shift is the afterburner: it spools up over a second to 62 m/s, and breaking 45 m/s sets off a
+  // sonic boom. The body banks into turns and pitches into climbs and dives, the boots leave contrails
+  // at speed, and coming down fast is a three-point landing that knocks back anyone close.
   flyStep(dt, inp, col) {
-    const p = G.player, cp = p.camPitch, cy = p.camYaw, fx = Math.sin(cy), fz = Math.cos(cy);
+    const p = G.player, mv = this.mv, cp = p.camPitch, cy = p.camYaw, fx = Math.sin(cy), fz = Math.cos(cy);
     const mz = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), mx = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0), up = (inp.down('Space') ? 1 : 0) - (inp.down('KeyC') ? 1 : 0);
-    const boost = inp.down('ShiftLeft') || inp.down('ShiftRight'), sp = boost ? 46 : 19;
-    const tx = (fx * Math.cos(cp) * mz - fz * mx) * sp, ty = -Math.sin(cp) * mz * sp + up * 12, tz = (fz * Math.cos(cp) * mz + fx * mx) * sp;
-    p.vel.x = damp(p.vel.x, tx, 2.8, dt); p.vel.y = damp(p.vel.y, ty, 3, dt); p.vel.z = damp(p.vel.z, tz, 2.8, dt);
+    const boost = (inp.down('ShiftLeft') || inp.down('ShiftRight')) && mz > 0;
+    if (!mv.lift) {   // takeoff: a blast ring on the ground and a kick upward
+      mv.lift = true; const g = this.centre(V()); g.y = p.pos.y + 0.1; G.fx.ring(g, '#9ff4ff', 0.3, 4, 0.4); G.fx.dust(g, 12, 1.2); p.vel.y = Math.max(p.vel.y, 7); if (G.sfx) G.sfx.play('whoosh', null, 0.8);
+    }
+    mv.burn = damp(mv.burn || 0, boost ? 1 : 0, boost ? 1.3 : 3, dt);                    // the afterburner spools up
+    const sp = 20 + mv.burn * 42, k = 2.6 + mv.burn * 1.4;
+    const tx = (fx * Math.cos(cp) * mz - fz * mx) * sp, ty = -Math.sin(cp) * mz * sp + up * 13, tz = (fz * Math.cos(cp) * mz + fx * mx) * sp;
+    p.vel.x = damp(p.vel.x, tx, k, dt); p.vel.y = damp(p.vel.y, ty, 3, dt); p.vel.z = damp(p.vel.z, tz, k, dt);
+    if (!mz && !mx && !up) p.vel.y += Math.sin(mv.t * 2.2) * 0.6 * dt;                     // hovering: a gentle bob
     if (p.pos.y > 700) p.vel.y = Math.min(p.vel.y, 0);
-    p.pos.addScaledVector(p.vel, dt);
-    const ground = this.collide(col);
-    if (ground && (inp.down('KeyC') || p.vel.y < -3)) { this.endMove(false); p.grounded = true; p.play('land', 0.2); return; }
+    // short steps at speed, so the armour never passes through a thin wall
+    const v = p.vel.length(), n = Math.min(6, Math.max(1, Math.ceil((v * dt) / 0.5))), h = dt / n; let ground = false;
+    for (let i = 0; i < n; i++) { p.pos.addScaledVector(p.vel, h); if (this.collide(col)) { ground = true; break; } }
+    if (ground && (inp.down('KeyC') || p.vel.y < -3)) { this.forgeLanding(-p.vel.y, Math.hypot(p.vel.x, p.vel.z)); return; }
     if (ground) p.vel.y = Math.max(p.vel.y, 1.5);
-    const hs = Math.hypot(p.vel.x, p.vel.z);
+    const hs = Math.hypot(p.vel.x, p.vel.z), yaw0 = p.yaw;
     p.yaw = dampAngle(p.yaw, hs > 3 ? Math.atan2(p.vel.x, p.vel.z) : cy, 6, dt);
+    const turn = angDelta(yaw0, p.yaw) / Math.max(dt, 1e-3);
     p.anim = hs > 9 ? 'fly' : 'hover';
-    // thrusters: from the boots, and the palms at speed
-    if (G.fx) { const r = p.rig; for (const k of [r.kneeL, r.kneeR]) { const q = k.localToWorld(this.w.set(0, -0.5, 0.03)); G.fx.spray(q, this.v.set(-p.vel.x * 0.02, -1, -p.vel.z * 0.02).normalize(), Math.random() < 0.5 ? '#9ff4ff' : '#ffffff', 1, 6, 0.3, 0.18, 0.16, 0.02); } }
-    if (G.audio && Math.random() < dt * 6) G.audio.burst(0.15, 0.015 + (boost ? 0.02 : 0), 900, 'bandpass');
+    // bank into turns, nose down into a dive and up into a climb (only once moving: hovering stays upright)
+    const fast = clamp((hs - 6) / 14, 0, 1);
+    p.tiltT = { x: clamp(-p.vel.y / 40, -0.45, 0.55) * fast, z: clamp(-turn * 0.22, -0.75, 0.75) * fast };
+    // the sound barrier: one boom each time you pass 45 m/s
+    if (!mv.boom && v > 45) {
+      mv.boom = true; const c = this.centre(V()), d = p.vel.clone().normalize();
+      G.fx.ring(c, '#ffffff', 0.5, 10, 0.5, d); G.fx.ring(c.clone().addScaledVector(d, -2), '#cfe9ff', 0.5, 7, 0.4, d); G.fx.shake(0.35);
+      if (G.sfx) G.sfx.play('boom', null, 0.8); G.ui.flash('MACH 1', 0.6);
+    }
+    if (v < 32) mv.boom = false;
+    // thrusters from the boots (and the palms at speed), contrails behind the boots when fast
+    if (G.fx) {
+      const r = p.rig, trail = v > 26; mv.trail = mv.trail || [V(), V(), false];
+      [r.kneeL, r.kneeR].forEach((kn, i) => {
+        const q = kn.localToWorld(this.w.set(0, -0.5, 0.03));
+        G.fx.spray(q, this.v.set(-p.vel.x * 0.02, -1, -p.vel.z * 0.02).normalize(), mv.burn > 0.5 ? (Math.random() < 0.5 ? '#ffb066' : '#ffffff') : Math.random() < 0.5 ? '#9ff4ff' : '#ffffff', 1 + Math.round(mv.burn * 2), 6 + mv.burn * 8, 0.3, 0.18, 0.16 + mv.burn * 0.1, 0.02);
+        // contrails: thin streaks joining where each boot was last frame to where it is now; they fade in 0.6 s
+        if (trail && mv.trail[2]) G.fx.beam(mv.trail[i].clone(), q.clone(), '#5a6a78', 0.05, 0.6);
+        mv.trail[i].copy(q);
+      });
+      mv.trail[2] = trail;
+      if (mv.burn > 0.3) for (const e of [r.elbL, r.elbR]) { const q = e.localToWorld(this.w.set(0, -0.36, 0.035)); G.fx.glow.emit(q.x, q.y, q.z, 0, 0, 0, '#9ff4ff', 0.12, 0.07, 0.02, 0, 0); }   // the palms glow while the afterburner runs
+    }
+    if (G.audio && Math.random() < dt * (6 + mv.burn * 8)) G.audio.burst(0.15, 0.015 + mv.burn * 0.03, 900 - mv.burn * 400, 'bandpass');
+  }
+  // coming down out of flight: a fast or steep arrival is a three-point landing with a shockwave
+  forgeLanding(drop, hs) {
+    const p = G.player; this.endMove(false); p.grounded = true;
+    if (drop > 9 || hs > 16) {
+      const c = V().set(p.pos.x, p.pos.y + 0.3, p.pos.z); p.vel.set(0, 0, 0); p.play('slam', 0.6);
+      this.ball(c, 4.5, { dmg: 12, knock: 10, up: 4, civ: false }); G.fx.ring(c, '#9ff4ff', 0.5, 6, 0.45); G.fx.ring(c, '#ffffff', 0.3, 3.5, 0.3); G.fx.dust(c, 18, 2);
+      G.damage.impact(V().set(c.x, p.pos.y, c.z), V().set(0, 1, 0), 1.6, 'blunt', { byHero: true, quiet: true }); G.fx.shake(0.4); this.sound('boom');
+    } else p.play('land', 0.2);
   }
   // zip (Strand's line) and rocket (Rook's stretch): straight at a point, fast
   zipStep(dt, col) {
@@ -685,13 +746,24 @@ export class Heroes {
   // a straight dash that hits everything along the way
   dashStep(dt, col) {
     const p = G.player, mv = this.mv, prev = p.pos.clone();
+    if (mv.steer) {   // a flight you aim with the camera (Brann's hammer): turns smoothly toward where you look
+      const d = G.camera.getWorldDirection(this.v); d.y = clamp(d.y + 0.12, -0.55, 0.65); d.normalize();
+      mv.dir.lerp(d, Math.min(1, 3.2 * dt)).normalize();
+      if (G.input.down('Space')) mv.dir.y = Math.min(0.8, mv.dir.y + dt * 1.5);
+    }
+    if (mv.spin) mv.spin(dt);
     p.vel.copy(mv.dir).multiplyScalar(mv.speed); p.pos.addScaledVector(mv.dir, mv.speed * dt);
     const ground = this.collide(col);
     if (mv.hit) { const a = prev.clone().setY(prev.y + 1), b = p.pos.clone().setY(p.pos.y + 1); this.strike({ kind: 'capsule', a, b, r: mv.r || 1.4 }, { ...mv.hit, except: mv.done, dir: mv.dir }); }
     if (mv.trail) mv.trail(prev, p.pos);
     p.yaw = Math.atan2(mv.dir.x, mv.dir.z); p.anim = mv.anim || 'dash';
     const moved = prev.distanceTo(p.pos);
-    if (mv.t >= mv.T || (moved < mv.speed * dt * 0.3 && mv.t > 0.05)) { const end = mv.onEnd; this.endMove(!ground); p.vel.multiplyScalar(0.15); if (end) end(); }
+    if (mv.t >= mv.T || (moved < mv.speed * dt * 0.3 && mv.t > 0.05)) {
+      const end = mv.onEnd; this.endMove(!ground);
+      // a dash that ends in the open air can fling you on with some of its speed (mv.keep); otherwise it stops short
+      if (mv.keep && !ground && moved >= mv.speed * dt * 0.3) { p.vel.multiplyScalar(mv.keep); p.vel.y = Math.max(p.vel.y, 3); p.fling = true; } else p.vel.multiplyScalar(0.15);
+      if (end) end();
+    }
   }
 
   // ---- STRAND ------------------------------------------------------------------------------------------
@@ -955,7 +1027,12 @@ export class Heroes {
     if (a.missed) { G.ui.toast('Nothing to grab that far away.', 'info'); return false; }
     const to = a.point.clone().addScaledVector(a.dir, -0.8); to.y -= 1;
     const tgt = a.target; p.play('zip', 0.4);
-    this.startMove('rocket', { to, speed: 48, onEnd: () => { if (tgt && tgt.alive) { this.ball(G.combat.centre(tgt, V()), 2, { dmg: 35, knock: 12, up: 4 }); G.fx.ring(this.centre(), '#ffd34d', 0.3, 3, 0.3); } p.vel.set(-a.dir.x * 4, 6.5, -a.dir.z * 4); } });
+    // the stretched arm snaps him to the point; there he lets go and is slung on past it, up and over (a hit enemy takes the blow)
+    this.startMove('rocket', { to, speed: 48, onEnd: () => {
+      if (tgt && tgt.alive) { this.ball(G.combat.centre(tgt, V()), 2, { dmg: 35, knock: 12, up: 4 }); G.fx.ring(this.centre(), '#ffd34d', 0.3, 3, 0.3); p.vel.set(-a.dir.x * 4, 6.5, -a.dir.z * 4); return; }
+      const up = a.wall && !a.ground, hx = a.dir.x, hz = a.dir.z, hl = Math.hypot(hx, hz) || 1, fw = up ? 3 : 14;   // at a wall he springs up it instead of into it
+      p.vel.set(hx / hl * fw, up ? 14 : 11, hz / hl * fw); p.fling = true; p.grounded = false; p.play('spin', 0.4); G.fx.ring(this.centre(), '#f08a24', 0.3, 2.5, 0.3);
+    } });
     this.mv.rope = G.fx.beam((v) => this.hand(v), a.point.clone(), '#e0ac7e', 0.08, 1e9, false);
     this.sound('swish');
   }
@@ -1031,10 +1108,16 @@ export class Heroes {
     G.fx.ring(at, '#8fd3ff', 3, 0.4, 0.35);
     this.later(0.35, () => { if (G.env.strike) G.env.strike(at); G.fx.bolt(at.clone().setY(at.y + 45), at, '#ffffff', 0.22, 0.3, 4); G.fx.bolt(at.clone().setY(at.y + 45), at, '#8fd3ff', 0.12, 0.3, 5); this.ball(at, 4.5, { dmg: 45, knock: 9, up: 5, kind: 'shock', color: '#8fd3ff', from: at }); G.damage.burst(at, 4.5, 2.5, 'shock', { byHero: true }); G.fx.ring(at, '#cfe9ff', 0.5, 7, 0.4); G.fx.shake(0.4); this.sound('boom'); });
   }
+  // hammer flight: the hammer whirls overhead and pulls him through the air for 2.4 s, steered with the
+  // camera (Space lifts), crackling with lightning and hitting anyone in the way; he flies on when it ends
   brannP2() {
-    const a = this.aim(80), p = G.player, dir = this.dirFrom(this.chest(), a); dir.y = Math.max(dir.y, 0.15); dir.normalize();
-    this.startMove('dash', { dir, speed: 38, T: 1.15, done: new Set(), anim: 'swing', hit: { dmg: 15, knock: 8, kind: 'shock', color: '#8fd3ff' }, r: 1.2, trail: (x, y) => G.fx.spark(y.clone().setY(y.y + 1.6), '#8fd3ff', 3, 3, 0.3, 0.1) });
-    p.play('swing', 1.2); this.sound('zap');
+    const a = this.aim(80), p = G.player, dir = this.dirFrom(this.chest(), a); dir.y = Math.max(dir.y, 0.2); dir.normalize();
+    const tool = this.tool;
+    this.startMove('dash', { dir, speed: 34, T: 2.4, steer: true, keep: 0.6, done: new Set(), anim: 'raise', hit: { dmg: 15, knock: 8, kind: 'shock', color: '#8fd3ff' }, r: 1.3,
+      spin: (dt) => { if (tool) tool.rotation.y += dt * 28; if (this.mv) this.mv.speed = Math.min(46, this.mv.speed + dt * 8); },
+      trail: (x, y) => { G.fx.spark(y.clone().setY(y.y + 2.2), '#8fd3ff', 3, 3, 0.3, 0.1); if (Math.random() < 0.25) G.fx.bolt(y.clone().setY(y.y + 2.4), y.clone().set(y.x - (y.x - x.x) * 6 + (Math.random() - 0.5) * 2, y.y + 1 + Math.random() * 2, y.z - (y.z - x.z) * 6 + (Math.random() - 0.5) * 2), '#cfe9ff', 0.04, 0.15); },
+      onEnd: () => { if (tool) tool.rotation.y = 0; } });
+    p.play('raise', 2.4); this.sound('zap');
   }
   brannP3() { const c = this.centre(); G.player.play('raise', 0.3); this.later(0.12, () => { this.ball(c, 7, { dmg: 22, knock: 15, up: 5, kind: 'shock', color: '#8fd3ff' }); G.fx.ring(c, '#8fd3ff', 0.5, 9, 0.5); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; G.fx.bolt(c, V().set(c.x + Math.cos(a) * 6, c.y, c.z + Math.sin(a) * 6), '#cfe9ff', 0.06, 0.25); } G.fx.shake(0.3); this.sound('boom'); }); }
   brannUlt() { this.ult = 10; this.stormT = 0; G.ui.flash('STORM', 1.4); if (G.env.strike) G.env.strike(this.centre()); }
@@ -1043,10 +1126,12 @@ export class Heroes {
   bulwarkLight() { this.combo3({ anims: ['punchR', 'punchL', 'heavy'], dmg: [18, 18, 28], knock: [7, 7, 14], range: 3.0, deg: 60, wall: 1.5 }); }
   bulwarkHeavy() { const p = G.player; p.play('slam', 0.45); this.later(0.16, () => { const c = this.centre(); c.y = p.pos.y + 0.3; this.ball(c, 5, { dmg: 30, knock: 12, up: 6 }); G.damage.impact(V().set(c.x, p.pos.y, c.z), V().set(0, 1, 0), 3, 'blunt', { byHero: true }); G.fx.ring(c, '#ffb347', 0.5, 6, 0.4); G.fx.dust(c, 22, 2); G.fx.shake(0.45); this.sound('boom'); }); }
   bulwarkP1() {
-    const p = G.player, a = this.aim(48), to = a.point.clone(), T = 1.0, g = 22 * (p.gravK || 1);
+    // a huge jump to the crosshair, up to 80 m: the longer the jump, the higher and longer the arc
+    const p = G.player, a = this.aim(80), to = a.point.clone(), g = 22 * (p.gravK || 1);
     if (!p.grounded) return false;
-    const dx = to.x - p.pos.x, dz = to.z - p.pos.z, dy = to.y - p.pos.y;
-    p.vel.set(dx / T, (dy + 0.5 * g * T * T) / T, dz / T); p.grounded = false; p.play('air', 1); this.leap = { t: 0 }; this.faceAim(0.4); this.sound('swish'); G.fx.dust(p.pos, 14, 1.5);
+    const dx = to.x - p.pos.x, dz = to.z - p.pos.z, dy = to.y - p.pos.y, T = clamp(Math.hypot(dx, dz) / 40, 0.9, 1.8);
+    p.vel.set(dx / T, (dy + 0.5 * g * T * T) / T, dz / T); p.grounded = false; p.fling = 'leap'; p.play('air', T); this.leap = { t: 0 };   // fling: the air does not slow the jump; 'leap': he lands in a crater, not a roll this.faceAim(0.4); this.sound('swish');
+    const c = V().set(p.pos.x, p.pos.y + 0.1, p.pos.z); G.fx.dust(c, 20, 2); G.fx.ring(c, '#ffb347', 0.5, 5, 0.4); G.damage.impact(c.clone(), V().set(0, 1, 0), 2, 'blunt', { byHero: true, quiet: true }); G.fx.shake(0.3);   // the street cracks under the push-off
   }
   bulwarkP2() { const p = G.player; this.faceAim(0.4); p.play('cast', 0.35); this.later(0.12, () => { const c = this.chest(), f = this.fwd(V(), 0.3); this.cone(12, 30, { dmg: 25, knock: 18, up: 3 }, c, f); G.fx.ring(c.clone().addScaledVector(f, 1), '#ffffff', 0.3, 4, 0.3, f); G.fx.spray(c, f, '#c8c2b4', 20, 18, 0.5, 0.6, 0.6, 1.8, 0, true); G.damage.wallHit(c, f, 12, 2, 'blunt', { byHero: true }); G.fx.shake(0.3); this.sound('boom'); }); }
   bulwarkP3() {
@@ -1159,6 +1244,7 @@ export class Heroes {
   swap() {
     if (!this.partner) { if (!(this.cd.swapMsg > 0)) { G.ui.toast('No partner yet: choose one at the Hero Hall (Partner).', 'info'); this.cd.swapMsg = 3; } return; }
     if (!this.ready('swap') || this.mv || this.channel) return;
+    if (!this.unlocked(this.partner)) { G.ui.toast(`${HEROES[this.partner].name} is locked. ${this.lockText(this.partner)}.`, 'warn'); return; }
     const was = this.id; this.become(this.partner, { swap: true }); this.partner = was; this.cd.swap = 3;
   }
   teamStrike() {
@@ -1179,7 +1265,8 @@ export class Heroes {
       options: [s.hmOn ? { label: 'On it', onPick: () => {} } : { label: 'Take the mission', onPick: () => { s.hmOn = true; if (!this.on) G.ui.toast('Become a hero first: the Hall, Choose a hero.', 'info'); if (m.raid && G.villains && !G.villains.raid) G.villains.nextRaid = Math.min(G.villains.nextRaid, 8); G.ui.toast(`Mission: ${m.name}. ${m.goal}.`, 'good'); } }, { label: 'Back', onPick: () => this.menu() }] });
   }
   missionRaid() { const m = this.mission(); return m && m.raid ? { ...m.raid } : null; }
-  missionStep(ok) { const s = this.st, m = this.mission(); if (!m || !ok) return; s.hm = (s.hm || 0) + 1; s.hmOn = s.hm < MISSIONS.length; G.economy.earn(m.pay, `mission: ${m.name}`); G.ui.flash('MISSION COMPLETE', 2); if (s.hm >= MISSIONS.length) { G.state.done.heroChapter = true; G.ui.toast('The Three Storms is complete. You are a Guardian of Neo Central.', 'good'); } else G.ui.toast(`Next mission at the Hero Hall: ${MISSIONS[s.hm].name}.`, 'info'); G.save.write(true); }
+  missionStep(ok) { const s = this.st, m = this.mission(); if (!m || !ok) return; s.hm = (s.hm || 0) + 1;
+    const fresh = HERO_IDS.filter((id) => UNLOCK[id] === s.hm && !s.used[id]); if (fresh.length) this.later(2.2, () => { G.ui.flash('NEW HEROES', 1.6); G.ui.toast(`Unlocked: ${fresh.map((id) => HEROES[id].name).join(' and ')}. Choose them at the Hero Hall.`, 'good'); }); s.hmOn = s.hm < MISSIONS.length; G.economy.earn(m.pay, `mission: ${m.name}`); G.ui.flash('MISSION COMPLETE', 2); if (s.hm >= MISSIONS.length) { G.state.done.heroChapter = true; G.ui.toast('The Three Storms is complete. You are a Guardian of Neo Central.', 'good'); } else G.ui.toast(`Next mission at the Hero Hall: ${MISSIONS[s.hm].name}.`, 'info'); G.save.write(true); }
   raidDone(R) { const m = this.mission(); if (m && m.raid) this.missionStep((!m.raid.type || m.raid.type === R.type) && (!m.raid.owner || m.raid.owner === R.owner)); }
   bossDone(kind) { const m = this.mission(); if (!m || !m.bosses) return; const s = this.st; s.hmB = { ...(s.hmB || {}), [kind]: true }; const left = m.bosses.filter((b) => !s.hmB[b]); if (!left.length) this.missionStep(true); else G.ui.toast(`Mission: ${left.length} boss${left.length > 1 ? 'es' : ''} left (${left.join(', ')}).`, 'info'); }
 
@@ -1244,6 +1331,7 @@ export class Heroes {
       if (this.ult > 0) { if (Math.random() < dt * 30) fx.glow.emit(p.pos.x + (Math.random() - 0.5) * 2.4, p.pos.y + Math.random() * 3, p.pos.z + (Math.random() - 0.5) * 2.4, 0, 1.4, 0, '#ffffff', 0.7, 0.3, 0.05, 0, 0); if (Math.random() < dt * 1.5) fx.ring(this.v.set(p.pos.x, p.pos.y + 0.1, p.pos.z), '#ffffff', 0.5, 5, 0.6); }
     }
     if (id === 'forge' && this.mv && this.mv.kind === 'fly' && this.core) this.core.material.color.setScalar(2.4);
+    if (id === 'brann' && this.tool && !(this.mv && this.mv.spin) && this.tool.rotation.y) this.tool.rotation.y = 0;   // the hammer stops whirling when the flight ends, however it ends
   }
 
   // ---- HUD -------------------------------------------------------------------------------------------
