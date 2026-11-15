@@ -621,6 +621,14 @@ you buy or are fined), unlimited energy, and every hero unlocked. It is saved wi
 can be switched off in the same menu. Being a single-player browser game, the code is in the game's
 script, so anyone who reads the source can find it.
 
+**Fighting from the air.** Strand's light attack in the air (or on a line) with an enemy within 30 m
+in front is a web strike: a line to them, a zip in feet first and a kick (34 damage), then a rebound up
+and back into the air to swing or strike again; with nobody in front it is the usual punches. Forge,
+flying, keeps firing palm shots while the attack is held (about one every 0.13 s, hands alternating),
+and the shots bend toward an enemy within about 14° of the crosshair (no help further off). Tested by
+script: a strike from 14 m lands in 0.37 s, one launched mid-swing lands too; 13 shots in 1.5 s of
+held fire dealt 156 damage with the crosshair 8° off a robot, none with it 25° off.
+
 **Moving as the other heroes.** Forge flies where the camera looks; Shift is an afterburner that
 spools up to 62 m/s and sets off a sonic boom past 45 m/s, the armour banks into turns and pitches
 into dives, the boots leave contrails, and a fast arrival is a three-point landing with a shockwave.

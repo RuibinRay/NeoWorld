@@ -372,6 +372,8 @@ export class Heroes {
         }
       }
       if (inp.pressed('Mouse0') || inp.pressed('KeyZ')) this.use('light');
+      // Forge in flight: hold the attack to keep firing, a palm shot every 0.13 s
+      else if (this.id === 'forge' && this.mv && this.mv.kind === 'fly' && (inp.down('Mouse0') || inp.down('KeyZ')) && !(this.cd.rapid > 0)) { this.cd.rapid = 0.13; this.cd.light = 0; this.use('light'); }
       if (inp.pressed('Mouse2') || inp.pressed('KeyX')) this.use('heavy');
       for (const s of SLOTS) if (inp.pressed(KEYS[s])) this.use(s);
       if (inp.pressed('Digit4')) this.signature();
@@ -438,6 +440,7 @@ export class Heroes {
     else if (mv.kind === 'fly') this.flyStep(dt, inp, col);
     else if (mv.kind === 'zip' || mv.kind === 'rocket') this.zipStep(dt, col);
     else if (mv.kind === 'dash') this.dashStep(dt, col);
+    else if (mv.kind === 'strike') this.strikeStep(dt, col);
     p.speed = Math.hypot(p.vel.x, p.vel.z);
   }
   // keep the body out of walls and above the ground; returns true if it touched the ground
@@ -783,7 +786,49 @@ export class Heroes {
   }
 
   // ---- STRAND ------------------------------------------------------------------------------------------
-  strandLight() { this.combo3({ anims: ['punchR', 'punchL', 'kick'], dmg: [11, 11, 18], knock: [3, 3, 8], range: 2.5, deg: 55, wall: 0.6 }); }
+  strandLight() {
+    // in the air (or on a line) with an enemy in front, a web strike; otherwise punch, punch, kick
+    const p = G.player, air = (p.state === 'walk' && !p.grounded && !p.swim) || (this.mv && this.mv.kind === 'swing'), t = air && this.airTarget(30, 0.75);
+    if (t) return this.webStrike(t);
+    this.combo3({ anims: ['punchR', 'punchL', 'kick'], dmg: [11, 11, 18], knock: [3, 3, 8], range: 2.5, deg: 55, wall: 0.6 });
+  }
+  // The web strike: a line to the enemy, a zip in feet first, and a kick that rebounds Strand up and back
+  // into the air, ready to swing or strike again (the move the swing games build their air combat on)
+  webStrike(t) {
+    const p = G.player; if (this.mv) this.endMove();
+    this.startMove('strike', { target: t, last: G.combat.centre(t, V()).clone() });
+    this.mv.rope = G.fx.beam((v) => this.hand(v), (v) => (t.alive ? G.combat.centre(t, v) : v.copy(this.mv ? this.mv.last : this.hand(v))), '#e8fbff', 0.025, 1e9, false);
+    p.play('zip', 0.15); this.sound('web'); if (G.sfx) G.sfx.play('zip', null, 0.7);
+  }
+  strikeStep(dt, col) {
+    const p = G.player, mv = this.mv, t = mv.target;
+    if (t.alive) G.combat.centre(t, mv.last);
+    const tx = mv.last.x, ty = mv.last.y - 0.9, tz = mv.last.z, dx = tx - p.pos.x, dy = ty - p.pos.y, dz = tz - p.pos.z, L = Math.hypot(dx, dy, dz) || 1e-3;
+    if (L < 1.6 || mv.t > 1.1) {
+      const hl = Math.hypot(dx, dz) || 1, ux = dx / hl, uz = dz / hl, hit = L < 2.6 && t.alive, c = mv.last.clone();
+      this.endMove(); p.fling = true;
+      if (hit) {
+        this.ball(c, 1.8, { dmg: 34, knock: 15, up: 5, kind: 'blunt', dir: V().set(ux, 0.25, uz).normalize(), max: 1 });
+        G.fx.ring(c, '#3fe0c5', 0.3, 3.2, 0.3, V().set(ux, 0, uz)); G.fx.spark(c, '#e8fbff', 14, 7, 0.35, 0.12); G.fx.shake(0.25); this.sound('swish');
+        p.vel.set(-ux * 6, 10, -uz * 6); p.play('spin', 0.4);   // rebound up and back off the kick
+      } else p.vel.multiplyScalar(0.4);
+      return;
+    }
+    const sp = Math.min(46, 30 + mv.t * 40), step = Math.min(L, sp * dt), n = Math.max(1, Math.ceil(step / 0.4));
+    p.vel.set((dx / L) * sp, (dy / L) * sp, (dz / L) * sp);
+    for (let i = 0; i < n; i++) { p.pos.x += (dx / L) * (step / n); p.pos.y += (dy / L) * (step / n); p.pos.z += (dz / L) * (step / n); if (this.collide(col) && mv.t > 0.15) { this.endMove(false); p.grounded = true; return; } }
+    p.yaw = Math.atan2(dx, dz); p.anim = 'kick'; p.tiltT = { x: clamp(-dy / L, -0.6, 0.6) * 0.6, z: 0 };
+  }
+  // the enemy nearest the crosshair within range (cos: how far off the crosshair it may be), for moves aimed from the air
+  airTarget(range, cos) {
+    const f = G.camera.getWorldDirection(V()), c = this.chest(); let best = null, bs = -1e9;
+    for (const t of G.combat.targets) {
+      if (!t.alive) continue; const q = G.combat.centre(t, this.w), d = q.distanceTo(c); if (d > range || d < 0.5) continue;
+      const dot = this.v.subVectors(q, c).normalize().dot(f); if (dot < cos) continue;
+      const s = dot * 3 - d / range; if (s > bs) { bs = s; best = t; }
+    }
+    return best;
+  }
   strandHeavy() {
     const p = G.player; this.faceAim(0.5);
     const c = this.chest(), f = this.fwd(); let best = null, bd = 15;
@@ -826,8 +871,10 @@ export class Heroes {
   forgeLight() {
     const p = G.player;
     if (p.grounded && !this.mv) return this.combo3({ anims: ['punchR', 'punchL', 'heavy'], dmg: [14, 14, 21], knock: [4, 4, 10], range: 2.6, deg: 55, wall: 0.9 });
-    const a = this.aim(90), h = (this.combo++ % 2) ? this.handL() : this.hand(); this.faceAim(0.3); p.play('castR', 0.15); this.sound('shot');
-    this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 75, r: 0.14, color: '#9ff4ff', dmg: 12, knock: 3, kind: 'energy', life: 1.3, power: 0.7, trail: '#59e0ff' });
+    // palm shots from alternating hands; in flight they bend toward an enemy within about 14 degrees of the crosshair
+    const a = this.aim(90), h = (this.combo++ % 2) ? this.handL() : this.hand(), t = this.mv && this.mv.kind === 'fly' ? this.airTarget(90, 0.97) : null;
+    this.faceAim(0.3); p.play('castR', 0.15); this.sound('shot'); G.fx.blast(h, '#9ff4ff', 0.05, 0.35, 0.08);
+    this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 75, r: 0.14, color: '#9ff4ff', dmg: 12, knock: 3, kind: 'energy', life: 1.3, power: 0.7, trail: '#59e0ff', ...(t ? { homing: t, turn: 6 } : {}) });
   }
   forgeHeavy() {
     const p = G.player, a = this.aim(90); this.faceAim(0.5); p.play('castR', 0.4);
