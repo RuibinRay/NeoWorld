@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { G } from '../core/game.js';
 import { HEROES, HERO_IDS, HIDEOUTS, VILLAINS } from '../data/heroes.js';
-import { clamp, damp, dampAngle, angDelta } from '../core/util.js';
+import { clamp, damp, dampAngle, angDelta, lerp } from '../core/util.js';
 import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
@@ -236,6 +236,14 @@ export class Heroes {
       for (const sx of [-1, 1]) { add(r.chest, B(0.13, 0.1, 0.16), std('#b8652a', 0.35, 0.8), sx * 0.21, 0.6, 0, 0, 0, sx * -0.2); add(r.chest, B(0.07, 0.05, 0.05), neon('#ffb066', 1.2), sx * 0.21, 0.66, 0.06); }
       for (const k of [r.kneeL, r.kneeR]) add(k, new THREE.CylinderGeometry(0.05, 0.07, 0.06, 10), neon('#9ff4ff', 1.6), 0, -0.47, 0.03);
       for (const e of [r.elbL, r.elbR]) add(e, new THREE.CylinderGeometry(0.03, 0.03, 0.01, 12), neon('#9ff4ff', 2), 0, -0.36, 0.035, Math.PI / 2);
+      // thruster flames: a pale outer cone and a white-hot core out of each boot sole and palm, along the limb.
+      // Hidden until Forge flies; flyStep sets their length (hover, cruise, afterburner) and flickers them.
+      const flame = (parent, y, z, s) => {
+        const g = new THREE.Group(); g.position.set(0, y, z); g.visible = false; parent.add(g); this.gear.push(g);
+        const cone = (rad, color, op) => { const geo = new THREE.ConeGeometry(rad, 1, 12, 1, true); geo.rotateX(Math.PI); geo.translate(0, -0.5, 0); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.frustumCulled = false; g.add(m); return m; };
+        return { g, outer: cone(0.085 * s, '#4fc4ff', 0.55), inner: cone(0.042 * s, '#ffffff', 0.95), s };
+      };
+      this.jets = { boots: [flame(r.kneeL, -0.5, 0.03, 1), flame(r.kneeR, -0.5, 0.03, 1)], palms: [flame(r.elbL, -0.37, 0.035, 0.7), flame(r.elbR, -0.37, 0.035, 0.7)] };
       this.shieldMesh = add(r.root, S(1.25), new THREE.MeshBasicMaterial({ color: new THREE.Color('#59e0ff').multiplyScalar(0.5), transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }), 0, 1.0, 0); this.shieldMesh.castShadow = false; this.shieldMesh.visible = false;
     } else if (id === 'raiko') {
       const sword = new THREE.Group(); sword.position.set(0, -0.36, 0.035); r.elbR.add(sword); this.gear.push(sword);
@@ -273,7 +281,7 @@ export class Heroes {
       this.fists = [r.elbL, r.elbR];
     }
   }
-  clearGear() { for (const m of this.gear) m.removeFromParent(); this.gear.length = 0; this.core = this.shieldMesh = this.blade = this.bladeGlow = this.eyeLens = this.fist = this.tool = this.veins = this.fists = null; }
+  clearGear() { for (const m of this.gear) m.removeFromParent(); this.gear.length = 0; this.core = this.shieldMesh = this.blade = this.bladeGlow = this.eyeLens = this.fist = this.tool = this.veins = this.fists = this.jets = null; }
   endPowers() {
     this.ult = 0; this.shield = 0; this.dodge = 0; this.balloon = 0; this.tired = 0; this.channel = null; this.timers.length = 0; this.form = 1; this.combo = 0;
     for (const pr of this.proj) if (pr.orb) pr.orb.life = 0; this.proj.length = 0;
@@ -738,10 +746,22 @@ export class Heroes {
     const hs = Math.hypot(p.vel.x, p.vel.z), yaw0 = p.yaw;
     p.yaw = dampAngle(p.yaw, hs > 3 ? Math.atan2(p.vel.x, p.vel.z) : cy, 6, dt);
     const turn = angDelta(yaw0, p.yaw) / Math.max(dt, 1e-3);
-    p.anim = hs > 9 ? 'fly' : 'hover';
-    // bank into turns, nose down into a dive and up into a climb (only once moving: hovering stays upright)
-    const fast = clamp((hs - 6) / 14, 0, 1);
-    p.tiltT = { x: clamp(-p.vel.y / 40, -0.45, 0.55) * fast, z: clamp(-turn * 0.22, -0.75, 0.75) * fast };
+    // The body: at speed it lies along the flight path (level in a cruise, head-down in a dive, upright going
+    // straight up), with the head raised to see ahead; slow, it stands upright and leans a little into the drift.
+    // A sharp slowdown is a flare: feet thrown forward, palms out ahead. Turns roll the body about its spine.
+    const dec = ((mv.prevV ?? v) - v) / Math.max(dt, 1e-3); mv.prevV = v;
+    if (dec > 14 && v > 8 && mz <= 0) mv.brake = 0.45;   // only when you let go of forward (a hard turn also costs speed)
+    mv.brake = Math.max(0, (mv.brake || 0) - dt);
+    const fastV = clamp((v - 6) / 14, 0, 1), elev = Math.atan2(p.vel.y, Math.max(hs, 1e-3));
+    const along = clamp(Math.PI / 2 - elev - 0.12, 0, 1.95);
+    let pitch = lerp(clamp(hs * 0.025, 0, 0.3), along, fastV), anim;
+    if (mv.brake > 0) { anim = 'jetBrake'; pitch = -0.45; }
+    else if (p.vel.y > 8 && hs < 8) anim = 'jetRise';
+    else if (hs > 9 || v > 14) anim = mv.burn > 0.5 ? 'jetBoost' : 'jetCruise';
+    else anim = 'jetHover';
+    p.anim = anim; mv.pose = anim;
+    const bank = clamp(-turn * 0.3, -1.05, 1.05) * clamp((hs - 6) / 14, 0, 1);
+    p.tiltT = { x: pitch, z: bank * (1 - Math.min(1, pitch / 1.2)) * 0.6, r: bank * Math.min(1, pitch / 1.2) };   // upright: a sideways lean; lying along the path: a roll
     // the sound barrier: one boom each time you pass 45 m/s
     if (!mv.boom && v > 45) {
       mv.boom = true; const c = this.centre(V()), d = p.vel.clone().normalize();
@@ -749,18 +769,28 @@ export class Heroes {
       if (G.sfx) G.sfx.play('boom', null, 0.8); G.ui.flash('MACH 1', 0.6);
     }
     if (v < 32) mv.boom = false;
-    // thrusters from the boots (and the palms at speed), contrails behind the boots when fast
+    // thrusters: steady flames out of the boots and palms (how long depends on what the suit is doing), sparks and
+    // heat along each flame's axis, a glow at every nozzle, contrails behind the boots when fast
+    if (this.jets) {
+      const J = this.jets, hot = mv.burn > 0.5, fl = 0.85 + Math.random() * 0.3;
+      const boot = anim === 'jetBoost' ? 1.9 : anim === 'jetCruise' ? 1.0 : anim === 'jetRise' ? 1.35 : anim === 'jetBrake' ? 0.45 : 0.7;
+      const palm = anim === 'jetBrake' ? 1.1 : anim === 'jetHover' ? 0.55 : anim === 'jetRise' ? 0.45 : anim === 'jetBoost' ? 0.75 : 0.3;
+      const set = (j, len) => { j.g.visible = true; const L = len * fl * j.s; j.outer.scale.set(1, L, 1); j.inner.scale.set(1, L * 0.62, 1); j.outer.material.color.set(hot ? '#9fd8ff' : '#4fc4ff'); };
+      for (const j of J.boots) set(j, boot); for (const j of J.palms) set(j, palm);
+    }
     if (G.fx) {
       const r = p.rig, trail = v > 26; mv.trail = mv.trail || [V(), V(), false];
+      const axis = (bone, y, out) => { const a = bone.localToWorld(this.w.set(0, y, 0.03)), b = bone.localToWorld(out.set(0, y - 0.3, 0.03)); return b.sub(a).normalize(); };
       [r.kneeL, r.kneeR].forEach((kn, i) => {
-        const q = kn.localToWorld(this.w.set(0, -0.5, 0.03));
-        G.fx.spray(q, this.v.set(-p.vel.x * 0.02, -1, -p.vel.z * 0.02).normalize(), mv.burn > 0.5 ? (Math.random() < 0.5 ? '#ffb066' : '#ffffff') : Math.random() < 0.5 ? '#9ff4ff' : '#ffffff', 1 + Math.round(mv.burn * 2), 6 + mv.burn * 8, 0.3, 0.18, 0.16 + mv.burn * 0.1, 0.02);
+        const q = kn.localToWorld(this.w.set(0, -0.5, 0.03)).clone(), d = axis(kn, -0.5, this.v);
+        G.fx.spray(q.clone().addScaledVector(d, 0.5 + mv.burn * 0.6), d, mv.burn > 0.5 ? (Math.random() < 0.5 ? '#ffd9a8' : '#ffffff') : Math.random() < 0.5 ? '#9ff4ff' : '#ffffff', 1 + Math.round(mv.burn), 10 + mv.burn * 10, 0.12, 0.1, 0.12 + mv.burn * 0.08, 0.0);
+        G.fx.glow.emit(q.x, q.y, q.z, 0, 0, 0, mv.burn > 0.5 ? '#ffffff' : '#bff4ff', 0.2 + mv.burn * 0.1, 0.05, 0.02, 0, 0);
         // contrails: thin streaks joining where each boot was last frame to where it is now; they fade in 0.6 s
         if (trail && mv.trail[2]) G.fx.beam(mv.trail[i].clone(), q.clone(), '#5a6a78', 0.05, 0.6);
         mv.trail[i].copy(q);
       });
       mv.trail[2] = trail;
-      if (mv.burn > 0.3) for (const e of [r.elbL, r.elbR]) { const q = e.localToWorld(this.w.set(0, -0.36, 0.035)); G.fx.glow.emit(q.x, q.y, q.z, 0, 0, 0, '#9ff4ff', 0.12, 0.07, 0.02, 0, 0); }   // the palms glow while the afterburner runs
+      for (const e of [r.elbL, r.elbR]) { const q = e.localToWorld(this.w.set(0, -0.37, 0.035)); G.fx.glow.emit(q.x, q.y, q.z, 0, 0, 0, '#bff4ff', 0.13 + (anim === 'jetBrake' || anim === 'jetHover' ? 0.06 : 0) + mv.burn * 0.05, 0.05, 0.02, 0, 0); }   // repulsor glow in the palms
     }
     if (G.audio && Math.random() < dt * (6 + mv.burn * 8)) G.audio.burst(0.15, 0.015 + mv.burn * 0.03, 900 - mv.burn * 400, 'bandpass');
   }
@@ -1427,6 +1457,7 @@ export class Heroes {
       if (this.ult > 0) { if (Math.random() < dt * 30) fx.glow.emit(p.pos.x + (Math.random() - 0.5) * 2.4, p.pos.y + Math.random() * 3, p.pos.z + (Math.random() - 0.5) * 2.4, 0, 1.4, 0, '#ffffff', 0.7, 0.3, 0.05, 0, 0); if (Math.random() < dt * 1.5) fx.ring(this.v.set(p.pos.x, p.pos.y + 0.1, p.pos.z), '#ffffff', 0.5, 5, 0.6); }
     }
     if (id === 'forge' && this.mv && this.mv.kind === 'fly' && this.core) this.core.material.color.setScalar(2.4);
+    if (this.jets && !(this.mv && this.mv.kind === 'fly')) for (const j of [...this.jets.boots, ...this.jets.palms]) j.g.visible = false;   // the thrusters cut out when the flight ends
     if (id === 'brann' && this.tool && !(this.mv && this.mv.spin) && this.tool.rotation.y) this.tool.rotation.y = 0;   // the hammer stops whirling when the flight ends, however it ends
   }
 

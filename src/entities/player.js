@@ -91,11 +91,13 @@ export class Player {
       // a hero on a line hangs along it (Hero Mode sets tiltT each frame it wants a tilt; it eases back to upright)
       const tt = this.tiltT; this.tiltT = null;
       this.tiltX = damp(this.tiltX || 0, tt ? tt.x : 0, 9, dt); this.tiltZ = damp(this.tiltZ || 0, tt ? tt.z : 0, 9, dt);
+      this.tiltR = damp(this.tiltR || 0, tt && tt.r ? tt.r : 0, 6, dt);   // a roll about the body's own long axis (Forge banking in level flight)
       // a landing roll: one forward somersault, tucked, turning about the hips
       let flip = 0;
       if (this.rollT > 0) { this.rollT -= dt; if (this.state !== 'walk' || !this.grounded) this.rollT = 0; flip = this.rollT > 0 ? (1 - this.rollT / 0.45) * Math.PI * 2 : 0; }
       this.rig.root.rotation.x = this.dive ? clamp(Math.min(1.15, this.speed * 0.45) - this.vel.y * 0.18, -0.7, 1.35) : this.state === 'busy' && this.busyAnim === 'faint' ? -1.35 : this.tiltX + flip; this.rig.root.rotation.order = 'YXZ';   // a diver tips head-down to sink, head-up to rise; a knocked-out hero lies flat
       this.rig.root.rotation.z = this.tiltZ;
+      if (Math.abs(this.tiltR) > 0.002) this.rig.root.rotateY(this.tiltR);   // after the pitch, so it turns about the spine whatever the body's angle
       if (Math.abs(this.tiltX) + Math.abs(this.tiltZ) + flip > 0.01 && !this.dive) {   // tilt about the hands, not the feet, so the hands stay on the line (a roll turns about the hips)
         const h = (flip ? 0.55 : 1.5) * this.rig.root.scale.y, v = (this._tv || (this._tv = new THREE.Vector3())).set(0, h, 0).applyEuler(this.rig.root.rotation);
         this.rig.root.position.x -= v.x; this.rig.root.position.y += h - v.y; this.rig.root.position.z -= v.z;
