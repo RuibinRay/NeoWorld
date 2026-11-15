@@ -23,6 +23,7 @@ import { Games } from './games.js';
 import { Street } from './street.js';
 import { Coast } from './coast.js';
 import { Ambient } from '../entities/ambient.js';
+import { Wrecks } from './wrecks.js';
 import { Happenings } from './happenings.js';
 import { Court } from './court.js';
 import { CanalRace } from './canalrace.js';
@@ -83,6 +84,7 @@ export function initSystems() {
   G.street = new Street();
   G.coast = new Coast();
   G.ambient = new Ambient();
+  G.wrecks = new Wrecks();
   G.happen = new Happenings();
   G.court = new Court();
   G.canal = new CanalRace();
@@ -143,6 +145,7 @@ export function updateSystems(dt, prof) {
   G.rides.update(dt);
   G.games.update(dt);
   G.street.update(dt);
+  G.wrecks.update(dt);
   G.coast.update(dt, t);
   G.happen.update(dt, t);
   G.court.update(dt);

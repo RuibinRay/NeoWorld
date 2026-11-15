@@ -26,7 +26,7 @@ export class AvenueTraffic {
     this.rng = new RNG(4242); this.pods = [];
     for (let k = 0; k < N; k++) {
       const type = TYPES[k % TYPES.length], slot = G.fleet.slot(type, type === 'taxi' ? TAXI : type === 'truck' ? BOXES[k % BOXES.length] : PAINTS[(k * 3) % PAINTS.length]);
-      this.pods.push({ on: false, slot, l: slot.l, w: slot.w, axis: 'z', line: 0, s: 0, dir: 1, v: 0, vmax: this.rng.range(10, 15) * (type === 'truck' ? 0.8 : 1), x: 0, z: 0, yaw: 0, turn: null, wait: 0, honk: 0 });
+      this.pods.push(slot.pod = { on: false, slot, l: slot.l, w: slot.w, axis: 'z', line: 0, s: 0, dir: 1, v: 0, vmax: this.rng.range(10, 15) * (type === 'truck' ? 0.8 : 1), x: 0, z: 0, yaw: 0, turn: null, wait: 0, honk: 0 });
     }
   }
   // put a pod on a random street segment 70 to 420 m from the focus. Closer than 200 m only where the
@@ -67,6 +67,7 @@ export class AvenueTraffic {
       const nc = o.dir > 0 ? Math.ceil((o.s - 60) / P) : Math.floor((o.s - 60) / P), zc = nc * P + 60, dist = (zc - o.s) * o.dir;      // metres to its centre
       const li = Math.round((o.line - 60) / P), ci = o.axis === 'z' ? li : nc, cj = o.axis === 'z' ? nc : li, c = corner(ci, cj);
       let target = o.vmax;
+      if (G.wrecks && G.wrecks.stopped(o.slot)) target = 0;   // hit, burning or a wreck
       if (dist < 46 && dist > 0) {
         // way out: straight on if the street continues, else a turn, else back the way it came
         if (!o.turn || o.turn.c !== c) {

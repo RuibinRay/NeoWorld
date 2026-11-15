@@ -77,7 +77,7 @@ export class Fleet {
     const paintMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.55 });
     const fixedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.35 });
     const lightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-    this.types = {}; this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0); this.one = new THREE.Vector3(1, 1, 1); this.zero = new THREE.Vector3(0, 0, 0); this.c = new THREE.Color();
+    this.types = {}; this.all = []; this.e = new THREE.Euler(0, 0, 0, 'YXZ'); this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0); this.one = new THREE.Vector3(1, 1, 1); this.zero = new THREE.Vector3(0, 0, 0); this.c = new THREE.Color();
     const B = new Builder();
     for (const type in MODELS) {
       // paint and dark parts share one mesh (the dark ones are dark enough that the paint tint does not show)
@@ -85,7 +85,7 @@ export class Fleet {
       const mk = (buf, mat, cast) => { const m = buf.mesh(mat, cast); if (!m) return null; const im = new THREE.InstancedMesh(m.geometry, mat, CAP[type]); im.count = 0; im.frustumCulled = false; im.castShadow = cast; im.receiveShadow = !mat.isMeshBasicMaterial; scene.add(im); return im; };
       const paint = mk(B.b.S, paintMat, true), fixed = mk(B.b.B, fixedMat, true), lights = mk(B.b.G, lightMat, false);
       for (const k in B.b) B.b[k].reset();
-      this.types[type] = { type, n: 0, paint, meshes: [paint, fixed, lights].filter(Boolean), ...MODELS[type] };
+      this.types[type] = { type, n: 0, paint, lights, meshes: [paint, fixed, lights].filter(Boolean), ...MODELS[type] };
     }
   }
   // a new vehicle: returns its slot, with its size
@@ -93,13 +93,16 @@ export class Fleet {
     const t = this.types[type]; if (t.n >= CAP[type]) throw new Error('fleet full: ' + type);
     const i = t.n++; t.paint.setColorAt(i, this.c.set(color)); t.paint.instanceColor.needsUpdate = true;
     for (const m of t.meshes) m.count = t.n;
-    const s = { t, i, type, w: t.w, l: t.l }; this.hide(s); return s;
+    const s = { t, i, type, w: t.w, l: t.l, color, on: false, x: 0, y: 0, z: 0, yaw: 0 }; this.all.push(s); this.hide(s); return s;
   }
   place(s, x, y, z, yaw) {
-    this.q.setFromAxisAngle(this.up, yaw); this.m4.compose(this.v.set(x, y, z), this.q, this.one);
-    for (const m of s.t.meshes) { m.setMatrixAt(s.i, this.m4); m.instanceMatrix.needsUpdate = true; }
+    if (s.dead) { x = s.wx; y = s.wy; z = s.wz; yaw = s.wyaw; }   // a wreck (systems/wrecks.js) stays where it blew up
+    s.x = x; s.y = y; s.z = z; s.yaw = yaw; s.on = true;
+    if (s.dead) this.q.setFromEuler(this.e.set(0.05, yaw, 0.09)); else this.q.setFromAxisAngle(this.up, yaw);
+    this.m4.compose(this.v.set(x, s.dead ? y - 0.22 : y, z), this.q, this.one);   // a wreck has dropped onto the street, tilted, its lights out
+    for (const m of s.t.meshes) { m.setMatrixAt(s.i, s.dead && m === s.t.lights ? this.m4z || (this.m4z = new THREE.Matrix4().compose(this.zero, new THREE.Quaternion(), this.zero)) : this.m4); m.instanceMatrix.needsUpdate = true; }
   }
-  hide(s) { this.m4.compose(this.zero, this.q.identity(), this.zero); for (const m of s.t.meshes) { m.setMatrixAt(s.i, this.m4); m.instanceMatrix.needsUpdate = true; } }
+  hide(s) { s.on = false; this.m4.compose(this.zero, this.q.identity(), this.zero); for (const m of s.t.meshes) { m.setMatrixAt(s.i, this.m4); m.instanceMatrix.needsUpdate = true; } }
   // keep someone on foot out of a vehicle's footprint (an oriented box)
   static pushOut(p, x, z, yaw, w, l) {
     const fx = Math.sin(yaw), fz = Math.cos(yaw), dx = p.x - x, dz = p.z - z, along = dx * fx + dz * fz, side = dx * fz - dz * fx, hl = l / 2 + 0.35, hw = w / 2 + 0.35;
@@ -131,6 +134,7 @@ export class Fleet {
     const vn = car.vel.x * nx + car.vel.z * nz;
     if (vn < 0) { car.vel.x -= 1.4 * vn * nx; car.vel.z -= 1.4 * vn * nz; car.vel.x *= 0.7; car.vel.z *= 0.7; }
     const hit = Math.max(0, -vn);
+    if (hit > 6 && o.slot && G.wrecks) G.wrecks.hurt(o.slot, (hit - 6) * 5, { byCar: true });   // ram it hard enough and the other vehicle is hurt too
     if (hit > 4) { car.damage((hit - 4) * 1.2, 'Collision'); car.knocks = (car.knocks || 0) + 1; if (G.audio) G.audio.blip(300, 0.1); }
     return hit;
   }

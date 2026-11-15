@@ -338,6 +338,7 @@ export class Heroes {
       if (!hit && G.npcs) for (const n of G.npcs.near) { if (n.inside || n.body !== 'humanoid' || (pr.done && pr.done.has(n))) continue; this.w.set(n.pos.x, n.pos.y + 0.95, n.pos.z); const b = Math.max(0, Math.min(step, this.w.clone().sub(pr.pos).dot(d))); if (this.w.distanceTo(pr.pos.clone().addScaledVector(d, b)) < 0.4 + (pr.r || 0.2)) { hit = pr.pos.clone().addScaledVector(d, b); break; } }
       let wall = false;
       if (pr.pierce && hit && pr.done) { pr.done.add([...G.npcs.near].find((n) => n.pos.distanceTo(hit) < 2) || null); this.ball(hit, 0.9, { dmg: pr.dmg, knock: pr.knock, kind: pr.kind, dir: d.clone(), except: pr.done }); hit = null; }
+      if (!hit && !pr.ghost && G.wrecks) { const v = G.wrecks.ray(pr.pos, d, step); if (v.t < step) { hit = pr.pos.clone().addScaledVector(d, v.t); wall = true; } }   // road vehicles are solid
       if (!hit && !pr.ghost) { const w = col.raycast(pr.pos.x, pr.pos.y, pr.pos.z, d.x, d.y, d.z, step); if (w < step) { hit = pr.pos.clone().addScaledVector(d, w); wall = true; } }
       if (!hit && pr.ghost) pr.pos.addScaledVector(d, step);
       else if (!hit) { pr.pos.addScaledVector(d, step); const g = col.groundAt(pr.pos.x, pr.pos.z, pr.pos.y + 0.5, 1, 0.1); if (pr.pos.y < g + 0.05) { hit = pr.pos.clone(); hit.y = g; wall = true; } }
