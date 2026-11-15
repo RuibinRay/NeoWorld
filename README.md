@@ -638,6 +638,10 @@ gamepad in Hero Mode: RB light, LB heavy, the d-pad up/right/down for 1/2/3 and 
 brutes, gunners and storm drones) raid a street 100–400 m away: a red beam marks it, the map shows
 it and a route is set. Until you come they smash shopfronts and scare people off the street; then
 they fight (brutes punch and slam, gunners keep their distance and shoot, drones circle overhead).
+Every 5-9 s a drone swoops: a red ring marks the spot in front of you (0.7 s), it rams through it at
+chest height (step out of the ring and it misses), then hangs there for 1.6 s, low enough to punch,
+before it climbs back; one drone at a time. Heroes who fight up close no longer need to aim up to
+reach them (Bulwark, standing and punching, downs one on its first swoop).
 Stopping a raid pays ◈250 plus ◈50 a robot. A raid you leave alone ends after a while.
 
 **Raids on busy streets.** A raid picks one of the busiest street corners or bus stops 60-380 m
