@@ -158,6 +158,13 @@ photoreal characters and animation.
   outer avenue and five on each cross street (was one, three and two), spread evenly so they do not
   queue. On the downtown street by the Swing Course there are now 6-9 vehicles within 120 m (was 0-2),
   and 40-50 within 250 m; traffic costs under 1 ms a frame.
+- **Busier pavements:** 200 passers-by walk the Midtown blocks around you (was 64), most of them within
+  about 60 m, and Meridian now has 80 of its own walking its pavement rings and crosswalks (it had only
+  the residents going about their day). New ones appear close by only where the camera is not looking.
+  Meridian's downtown street by the Swing Course has 40-80 people within 60 m (was 2-7), Midtown blocks
+  40-90 (was 7-10). At night about a third stay out, in heavy rain about two thirds; the rest go home
+  once out of sight. When villains fight close by, everyone within about 24 m turns and runs.
+  Passers-by cost under 1 ms a frame; figures behind the camera are not drawn.
 - **The park lawn** is a soft, low-contrast grass (broad light and dark patches, thin blades in close
   shades, lightly blurred) instead of a tile of bright and dark specks that read as static.
 - **The far skyline** (620 simple towers 1.7-3.4 km out, past the edge of the street grid) is a
