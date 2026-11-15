@@ -57,6 +57,7 @@ export class Damage {
   // A blow lands on a surface at p. power: about 1 for a punch, 3 for a blast, 6 for a boss's club.
   impact(p, n, power = 1, kind = 'blunt', o = {}) {
     power = clamp(power, 0.3, 8);
+    if (!o.fromWreck && G.wrecks && G.wrecks.impact(p, power, kind, o)) return;   // it hit a road vehicle: the vehicle takes it (no scorch hanging in the air)
     const scar = this.scarAt(p, n);
     if (power >= 0.8) this.mark(p, n, clamp(0.6 + power * 0.75, 0.7, 7) * (0.8 + Math.random() * 0.4), kind === 'fire' ? 0.55 : kind === 'web' ? 0 : 0.95, scar);
     const k = Math.round(clamp(power * 2.6, 1, 16));
@@ -86,6 +87,7 @@ export class Damage {
   }
   // an explosion at c: a crater if it is near the ground, and every wall within reach takes some of it
   burst(c, radius, power, kind = 'blunt', opts = {}) {
+    if (G.wrecks && !opts.fromWreck) G.wrecks.blast(c, radius, power * 0.6, opts);   // road vehicles: a power's blast dents and sets them smoking, it takes a car's own explosion to set off the next
     const g = G.colliders.groundAt(c.x, c.z, c.y + 0.5, 3, 0.3);
     if (c.y - g < radius * 0.7) this.impact(new THREE.Vector3(c.x, g, c.z), new THREE.Vector3(0, 1, 0), power * (1 - (c.y - g) / radius), kind, { ...opts, quiet: true });
     for (let i = 0; i < 6; i++) {

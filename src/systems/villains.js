@@ -588,6 +588,7 @@ export class Villains {
       const sp = pr.vel.length(), step = sp * dt, d = V().copy(pr.vel).divideScalar(sp || 1);
       let hit = null, hero = false;
       if (H && H.alive) { const c = H.centre(), b = clamp(V().subVectors(c, pr.pos).dot(d), 0, step); if (c.distanceTo(V().copy(pr.pos).addScaledVector(d, b)) < pr.r + 0.55) { hit = V().copy(pr.pos).addScaledVector(d, b); hero = true; } }
+      if (!hit && G.wrecks) { const v = G.wrecks.ray(pr.pos, d, step); if (v.t < step) hit = V().copy(pr.pos).addScaledVector(d, v.t); }   // a road vehicle in the way takes the shot
       if (!hit) { const w = col.raycast(pr.pos.x, pr.pos.y, pr.pos.z, d.x, d.y, d.z, step); if (w < step) hit = V().copy(pr.pos).addScaledVector(d, w); }
       if (!hit) { pr.pos.addScaledVector(d, step); const g = col.groundAt(pr.pos.x, pr.pos.z, pr.pos.y + 0.5, 1, 0.1); if (pr.pos.y < g + 0.05) { hit = pr.pos.clone(); hit.y = g; } }
       for (const e of this.erase) if ((hit || pr.pos).distanceTo(e.p) < e.r) { G.fx.spark(pr.pos, '#ff5a6e', 6, 3, 0.3, 0.1); pr.life = 0; hit = null; break; }

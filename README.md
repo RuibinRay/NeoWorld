@@ -692,6 +692,24 @@ Hitting residents costs standing with them and their friends (much more when the
 Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for damaging property outside a
 fight with villains).
 
+**Vehicles can be wrecked** (`systems/wrecks.js`). Every moving car, taxi, van and truck on the avenues,
+Meridian's streets and the highways takes damage: a hero's punches and powers, shots aimed at it (the
+crosshair and projectiles now stop at a vehicle instead of passing through), blasts, villains' attacks
+and stray shots, and ramming it with your own vehicle at more than about 22 km/h. A hit vehicle stops for
+a few seconds. Below 55% health it smokes; below 25% it catches fire, the people nearby run, and about
+4.5 s later it blows up (at once, if it is finished off): a fireball, a scorch on the street and walls,
+up to 8 m of blast that hurts villains, the hero and your own vehicle and knocks residents flat (never
+hurting them), and that can set off the vehicle next to it (one touching it goes up too, one a car's
+length away is left smoking). Health: cars and taxis 100, vans 140, trucks 220. The wreck stays where it
+stopped, charred, tilted and lights out, burning for a while and smoking, and the traffic behind it
+queues; the city tows it away 40 s later once you are not looking (after 100 s whatever happens) and
+it rejoins the traffic. A hero who blows up vehicles outside a fight with villains is reported for
+damaging city property (one star for a car). Parked vehicles (drawn into the street tiles) and buses
+cannot be damaged, and your own vehicle still only loses hull (no explosion). Tested: eight combos of
+Strand's punches leave a car smoking at half health, Forge's six missiles blow one up from 16 m, a
+22 m/s crash leaves a van smoking; a raid fought beside the avenue hurt one passing car and blew up
+none; six burning or wrecked vehicles at once cost about 0.02 ms a frame.
+
 **Wanted level** (`systems/wanted.js`, stars under your wallet). Offences raise it: a hit on a
 resident is about a star, someone going down about two, shooting down a patrol drone or running from
 a stop more; traffic offences alone never go past 2 stars. At 1-2 stars the Aegis-12 drone comes for

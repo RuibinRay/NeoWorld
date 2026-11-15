@@ -31,6 +31,7 @@ export class Combat {
     const ex = o.except || null;
     for (const t of this.targets) { if (!t.alive || n >= max || (ex && ex.has(t))) continue; if (this.inside(shape, this.centre(t), t.r)) { hits.push(t); n++; if (ex) ex.add(t); } }
     for (const t of hits) this.hitTarget(t, this.pushDir(shape, this.centre(t), o), o);
+    if (G.wrecks) G.wrecks.strike(shape, o, (sh, p, r) => this.inside(sh, p, r));   // road vehicles in the way
     if (o.civ !== false && G.npcs && !(G.heroes && G.heroes.training && o.byHero)) for (const npc of G.npcs.list) {
       if (n >= max) break;
       if (npc.inside || npc.body !== 'humanoid' || npc.hold || npc.converse || (ex && ex.has(npc))) continue;
@@ -106,6 +107,7 @@ export class Combat {
   // A villain's attack: the hero (if inside the shape) and any residents in the way. Returns true if the hero was hit.
   villainStrike(shape, o = {}) {
     let hit = false; const H = G.heroes;
+    if (G.wrecks) G.wrecks.strike(shape, o, (sh, p, r) => this.inside(sh, p, r));
     if (H && H.alive) { const c = H.centre(); if (this.inside(shape, c, 0.45)) { H.hurt(o.dmg || 0, this.pushDir(shape, c, o).clone(), o); hit = true; } }
     if (o.civ !== false && G.npcs) for (const npc of G.npcs.list) {
       if (npc.inside || npc.body !== 'humanoid' || npc.hold || npc.converse) continue;
@@ -124,6 +126,7 @@ export class Combat {
     for (const t of this.targets) { if (!t.alive) continue; const c = this.centre(t); const d = test(c.x, c.y, c.z, t.r); if (d >= 0 && d < best) { best = d; hit = t; } }
     if (civ && G.npcs) for (const n of G.npcs.near) { if (n.inside || n.body !== 'humanoid') continue; const d = test(n.pos.x, n.pos.y + 0.95, n.pos.z, 0.35); if (d >= 0 && d < best) { best = d; hit = null; npc = n; } }
     let wall = false;
+    if (walls && G.wrecks) { const v = G.wrecks.ray(o, dir, best); if (v.t < best) { best = v.t; hit = null; npc = null; wall = true; } }   // a vehicle in the way is solid: what hits it, hits the vehicle (damage.impact)
     if (walls) { const w = G.colliders.raycast(o.x, o.y, o.z, dir.x, dir.y, dir.z, best); if (w < best - 1e-3) { best = w; hit = null; npc = null; wall = true; } }
     // The open ground is not a box, so the ray above would pass under the street: walk down it in 2 m
     // steps to where it meets the ground (or a deck), then narrow that down, so aiming at the street lands on it.

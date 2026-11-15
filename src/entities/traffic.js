@@ -45,7 +45,7 @@ export class Traffic {
       let mesh = null, slot = null, w, l;
       if (kind === 'bus') { const m = groundMesh(kind, '#f0f3f7'); G.scene.add(m.g); mesh = m.g; w = m.w; l = m.l; }
       else { const type = kind === 'van' ? 'van' : this.rng.chance(0.25) ? 'taxi' : 'car'; slot = G.fleet.slot(type, type === 'taxi' ? TAXI : this.rng.pick(PAINTS)); w = slot.w; l = slot.l; }
-      const v = { path, s, v: vmax * 0.6, vmax, kind, mesh, slot, w, l, p: new THREE.Vector3(), yaw: 0, blocked: 0, ghost: 0, dwell: 0, lastStop: -1, look: kind === 'bus' ? 13 : 9 };
+      const v = { path, s, v: vmax * 0.6, vmax, kind, mesh, slot, w, l, p: new THREE.Vector3(), yaw: 0, blocked: 0, ghost: 0, dwell: 0, lastStop: -1, look: kind === 'bus' ? 13 : 9 }; if (slot) slot.pod = v;
       v.yaw = path.sample(s, v.p); this.ground.push(v); return v;
     };
     // Meridian's streets: two cars round each block, nine on the outer avenue, five on each cross street,
@@ -163,7 +163,7 @@ export class Traffic {
         }
       }
       if (v.dwell > 0) v.dwell -= dt;
-      const stop = block || v.dwell > 0;
+      const stop = block || v.dwell > 0 || (v.slot && G.wrecks && G.wrecks.stopped(v.slot));   // hit, burning or a wreck
       v.blocked = block ? v.blocked + dt : 0;
       if (v.blocked > 7) { v.ghost = 3; v.blocked = 0; }
       v.v = damp(v.v, stop ? 0 : v.vmax, stop ? 5 : 1.1, dt);

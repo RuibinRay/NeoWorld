@@ -74,7 +74,7 @@ export function buildRoads(scene, col, city, districts) {
   for (let i = 0; i < n; i++) {
     const onRing = i >= 30, seg = onRing ? null : radials[i % radials.length], type = TYPES[i % TYPES.length];
     const slot = G.fleet.slot(type, type === 'taxi' ? TAXI : type === 'truck' ? BOXES[i % BOXES.length] : PAINTS[i % PAINTS.length]);
-    pods.push({ seg, ti: onRing ? radials.length : radials.indexOf(seg), slot, l: slot.l, w: slot.w, dir: i % 2 ? 1 : -1, s: onRing ? rng.range(0, TAU) : rng.range(0, seg.len), v: 0, vmax: rng.range(20, 30) * (type === 'truck' ? 0.75 : 1), x: 0, z: 0, yaw: 0 });
+    pods.push(slot.pod = { seg, ti: onRing ? radials.length : radials.indexOf(seg), slot, l: slot.l, w: slot.w, dir: i % 2 ? 1 : -1, s: onRing ? rng.range(0, TAU) : rng.range(0, seg.len), v: 0, vmax: rng.range(20, 30) * (type === 'truck' ? 0.75 : 1), x: 0, z: 0, yaw: 0 });
   }
   const roads = {
     segs, radials, ends, ring: RING, pods,
@@ -89,6 +89,7 @@ export function buildRoads(scene, col, city, districts) {
         else { const a = o.s, r = RING - o.dir * LANE; o.x = Math.cos(a) * r; o.z = Math.sin(a) * r; fx = -Math.sin(a) * o.dir; fz = Math.cos(a) * o.dir; }
         // slow down for anyone on the road ahead, queue behind the vehicle in front, stop at red where the road crosses a street
         let target = o.vmax;
+        if (G.wrecks && G.wrecks.stopped(o.slot)) target = 0;   // hit, burning or a wreck
         const dx = who.x - o.x, dz = who.z - o.z, ahead = dx * fx + dz * fz, side = Math.abs(dx * fz - dz * fx);
         if (low && ahead > -2 && ahead < o.l / 2 + 22 && side < o.w / 2 + 2.4) target = 0;
         for (let k = 0; k < n; k++) {
