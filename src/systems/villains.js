@@ -5,7 +5,8 @@
 // dragon halfway through the fight.
 import * as THREE from 'three';
 import { G } from '../core/game.js';
-import { CREW, KUROZAN, VILLAINS } from '../data/heroes.js';
+import { CREW, KUROZAN, VILLAINS, HIDEOUTS } from '../data/heroes.js';
+const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 import { clamp, damp, dampAngle } from '../core/util.js';
 import { std, neon } from '../world/materials.js';
 import { makeHumanoid, animateRig, makeDrone } from '../entities/rigs.js';
@@ -225,11 +226,11 @@ class Foe {
   punch() {
     const f = V().set(Math.sin(this.yaw), 0, Math.cos(this.yaw)), c = this.centre().addScaledVector(f, 1.3);
     this.anim = 'punchR'; if (G.audio) G.audio.burst(0.12, 0.08, 400);
-    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: this.human ? 6 : 12, knock: this.human ? 5 : 7, dir: f, src: this });
+    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: (this.human ? 6 : 12) * (this.pow || 1), knock: this.human ? 5 : 7, dir: f, src: this });
   }
   slam() {
     const c = V().set(this.pos.x, this.pos.y + 0.3, this.pos.z);
-    G.combat.villainStrike({ kind: 'sphere', c, r: 4.5 }, { dmg: 18, knock: 10, up: 4, from: c, copy: 'quake', src: this });
+    G.combat.villainStrike({ kind: 'sphere', c, r: 4.5 }, { dmg: 18 * (this.pow || 1), knock: 10, up: 4, from: c, copy: 'quake', src: this });
     G.fx.ring(c, RED, 0.5, 6, 0.45); G.fx.dust(c, 18, 2); G.fx.shake(0.25); G.damage.impact(V().set(c.x, c.y - 0.3, c.z), V().set(0, 1, 0), 2.2, 'blunt', { quiet: true });
     if (G.audio) G.audio.thud(0.8);
     if (G.heroes) G.heroes.saw('quake', this.pos);
@@ -245,14 +246,14 @@ class Foe {
     const from = this.flying ? V().copy(this.pos).add(V().set(0, -0.2, 0)) : this.rig.elbR.localToWorld(V().set(0, -0.36, 0.56)), aim = H.centre().clone();
     aim.x += G.player.vel.x * 0.25 + (Math.random() - 0.5) * 1.4; aim.z += G.player.vel.z * 0.25 + (Math.random() - 0.5) * 1.4; aim.y += (Math.random() - 0.5) * 0.8;
     const dir = aim.sub(from).normalize();
-    this.sys.shoot({ from, dir, speed: this.flying ? 24 : 30, r: this.flying ? 0.22 : 0.15, color: this.flying ? '#ff6a00' : '#ff8a00', dmg: 9, knock: 4, blast: this.flying ? 2 : 0, copy: this.flying ? 'rockets' : 'volley', src: this });
+    this.sys.shoot({ from, dir, speed: this.flying ? 24 : 30, r: this.flying ? 0.22 : 0.15, color: this.flying ? '#ff6a00' : '#ff8a00', dmg: 9 * (this.pow || 1), knock: 4, blast: this.flying ? 2 : 0, copy: this.flying ? 'rockets' : 'volley', src: this });
     if (G.heroes) G.heroes.saw(this.flying ? 'rockets' : 'volley', this.pos);
     if (G.audio && G.player.pos.distanceTo(this.pos) < 50) G.audio.tone(this.flying ? 500 : 760, 0.1, 0.03, 'square', null, 0, 0.5);
   }
   stars(n) {
     const H = G.heroes; if (!H || !H.alive) return;
     const from = this.rig.elbR.localToWorld(V().set(0, -0.36, 0.05)), to = H.centre();
-    for (let k = 0; k < n; k++) { const d = V().subVectors(to, from).normalize(), a = (k - (n - 1) / 2) * 0.12; d.set(d.x * Math.cos(a) - d.z * Math.sin(a), d.y, d.x * Math.sin(a) + d.z * Math.cos(a)); this.sys.shoot({ from: from.clone(), dir: d, speed: 34, r: 0.12, color: '#c9a6ff', dmg: this.kind === 'shade' ? 8 : 6, knock: 2, copy: 'volley', src: this }); }
+    for (let k = 0; k < n; k++) { const d = V().subVectors(to, from).normalize(), a = (k - (n - 1) / 2) * 0.12; d.set(d.x * Math.cos(a) - d.z * Math.sin(a), d.y, d.x * Math.sin(a) + d.z * Math.cos(a)); this.sys.shoot({ from: from.clone(), dir: d, speed: 34, r: 0.12, color: '#c9a6ff', dmg: (this.kind === 'shade' ? 8 : 6) * (this.pow || 1), knock: 2, copy: 'volley', src: this }); }
     if (G.heroes) G.heroes.saw('volley', this.pos);
   }
   laser() {
@@ -429,6 +430,71 @@ class Pylon {   // Vektor's shield pylons: break all four to drop his shield
   hit(d) { if (!this.alive) return; this.hp -= d; G.fx.spark(V().set(this.pos.x, this.pos.y + 2, this.pos.z), '#ff2a4f', 6, 4, 0.3, 0.1); if (this.hp <= 0) { this.alive = false; G.combat.remove(this); G.fx.blast(V().set(this.pos.x, this.pos.y + 2, this.pos.z), '#ff2a4f', 0.3, 3, 0.35); this.cap.visible = false; if (G.audio) G.audio.burst(0.4, 0.15, 400); } }
   update(dt, t, link) { if (this.alive && link && Math.random() < dt * 20) G.fx.beam(V().set(this.pos.x, this.pos.y + 3.2, this.pos.z), link.pos.clone(), '#ff2a4f', 0.05, 0.06); }
   remove() { this.alive = false; G.combat.remove(this); this.g.removeFromParent(); }
+}
+class Generator {   // a hideout's generator: while any is running, the crew keeps calling in more of their own
+  constructor(sys, pos, color, hp) {
+    this.pos = pos.clone(); this.h = 1.2; this.r = 1.3; this.alive = true; this.team = 'villain'; this.name = 'Generator'; this.hp = this.max = hp; this.big = true; this.color = color;
+    const g = (this.g = new THREE.Group()); g.position.copy(pos); G.scene.add(g);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 2.2), std('#22252c', 0.5, 0.7)); base.position.y = 0.6; base.castShadow = true; g.add(base);
+    for (const sx of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.6, 1.8), std('#2e323b', 0.5, 0.7)); fin.position.set(sx * 1.16, 1.0, 0); g.add(fin); }
+    this.core = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.6, 12), neon(color, 2.2)); this.core.position.y = 2.0; g.add(this.core);
+    this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 28), neon(color, 1.6)); this.ring.position.y = 2.0; this.ring.rotation.x = Math.PI / 2; g.add(this.ring);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 12), std('#1c1e24', 0.4, 0.8)); cap.position.y = 2.86; g.add(cap);
+    G.combat.add(this);
+  }
+  hit(d) {
+    if (!this.alive) return; this.hp -= d; G.fx.spark(V().set(this.pos.x, this.pos.y + 2, this.pos.z), this.color, 6, 4, 0.3, 0.1);
+    if (this.hp <= 0) {
+      this.alive = false; G.combat.remove(this); const c = V().set(this.pos.x, this.pos.y + 2, this.pos.z);
+      G.fx.blast(c, this.color, 0.4, 4, 0.4); G.fx.smoke(c, 6, '#2a2c31', 2, 3); G.fx.shake(0.3); this.core.visible = false; this.ring.visible = false;
+      if (G.audio) { G.audio.burst(0.6, 0.25, 300); G.audio.thud(0.7); }
+      G.ui.flash('GENERATOR DOWN', 1.1);
+      if (this.onDown) this.onDown();
+    }
+  }
+  wreck() { this.alive = false; this.hp = 0; G.combat.remove(this); this.core.visible = false; this.ring.visible = false; }   // already wrecked on an earlier try
+  update(dt, t) { if (!this.alive) return; this.ring.rotation.z = t * 3; this.ring.position.y = 2.0 + Math.sin(t * 2.2) * 0.4; const k = 1 + Math.sin(t * 9) * 0.07; this.core.scale.set(k, 1, k); }   // (materials are shared: pulse the size, not the glow)
+  reset() { if (this.alive) this.hp = this.max; }   // the crew patch up the ones still running (wrecked ones stay wrecked)
+  remove() { this.alive = false; G.combat.remove(this); this.g.removeFromParent(); this.g.traverse((m) => { if (m.geometry) m.geometry.dispose(); }); }
+}
+// A crew's base: a walled square 36 m across with a gate in the middle of each side, crates for cover,
+// two banner masts with the crew's colour, floodlights, and three generators.
+class Hideout {
+  constructor(sys, owner) {
+    const d = HIDEOUTS[owner], v = VILLAINS[owner], col = v.color, lv = sys.st.hideLv ? sys.st.hideLv[owner] || 0 : 0;
+    const y = G.colliders.groundAt(d.x, d.z, 30, 40, 0.5); this.at = V().set(d.x, y, d.z); this.owner = owner;
+    const g = (this.g = new THREE.Group()); g.position.copy(this.at); G.scene.add(g);
+    sys.hideBoxes = sys.hideBoxes || {}; const kept = sys.hideBoxes[owner]; this.boxes = kept || (sys.hideBoxes[owner] = []); for (const b of this.boxes) b.enabled = true;
+    const wallM = std('#3a3d45', 0.85, 0.1), stripe = neon(col, 1.4), crateM = std('#4a4136', 0.8, 0.1), dark = std('#1c1e24', 0.5, 0.6);
+    const solid = (mesh, x, z, w, h, dpt) => { mesh.position.set(x, h / 2, z); mesh.castShadow = true; mesh.receiveShadow = true; g.add(mesh); if (!kept) this.boxes.push(G.colliders.box(d.x + x - w / 2, d.x + x + w / 2, y, y + h, d.z + z - dpt / 2, d.z + z + dpt / 2, { hideout: true })); };
+    // walls: each side two 13 m pieces either side of a 10 m gate
+    for (const [ax, az] of [[0, -18], [0, 18], [-18, 0], [18, 0]]) for (const s of [-1, 1]) {
+      const along = s * 11.5, x = ax ? ax : along, z = az ? az : along, w = ax ? 0.8 : 13, dpt = ax ? 13 : 0.8;
+      solid(new THREE.Mesh(new THREE.BoxGeometry(w, 1.6, dpt), wallM), x, z, w, 1.6, dpt);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.14, dpt + 0.02), stripe); st.position.set(x, 1.25, z); g.add(st);
+    }
+    // crates to fight round
+    for (const [x, z, s] of [[-8, -7, 2.2], [9, -5, 1.8], [-6, 9, 1.8], [7, 8, 2.4], [0, -11, 1.6]]) solid(new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateM), x, z, s, s, s);
+    // banner masts with the crew's colour, and floodlights at two corners
+    for (const sx of [-1, 1]) {
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 12, 8), dark); mast.position.set(sx * 13, 6, -13); g.add(mast);
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 4.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(1.6), side: THREE.DoubleSide, transparent: true, opacity: 0.85 })); flag.position.set(sx * 13 + 1.4, 9.4, -13); g.add(flag);
+      const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 9, 6), dark); lamp.position.set(sx * 15, 4.5, 15); g.add(lamp);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 0.6), neon('#fff2c8', 2.2)); head.position.set(sx * 15, 9, 15); g.add(head);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(4.5, 1, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#fff2c8', transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+      // the beam: its tip at the lamp, spreading down onto the yard inside the walls
+      const top = new THREE.Vector3(sx * 15, 8.8, 15), foot = new THREE.Vector3(sx * 8, 0, 8), dir = top.clone().sub(foot), L = dir.length();
+      cone.scale.y = L; cone.position.copy(foot).addScaledVector(dir, 0.5); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); g.add(cone);
+    }
+    // generators: tougher each time the hideout is rebuilt
+    const hp = Math.round(380 * (1 + lv * 0.35) * G.heroes.diff.hp);
+    sys.wrecked = sys.wrecked || {}; const wrecked = sys.wrecked[owner] || (sys.wrecked[owner] = new Set());   // generators wrecked on an earlier try stay wrecked until the hideout is taken
+    this.gens = [[-10, 0], [10, 0], [0, 10]].map(([x, z], i) => { const k = new Generator(sys, V().set(d.x + x, G.colliders.groundAt(d.x + x, d.z + z, y + 3, 4, 0.4), d.z + z), col, hp); k.onDown = () => wrecked.add(i); if (wrecked.has(i)) k.wreck(); return k; });
+  }
+  update(dt, t) { for (const k of this.gens) k.update(dt, t); }
+  // taken: the generators and banners go up in smoke, then the whole thing is cleared away
+  wreck() { for (const k of this.gens) if (k.alive) k.hit(1e6); G.fx.blast(V().set(this.at.x, this.at.y + 6, this.at.z - 13), '#ffb347', 0.5, 6, 0.5); }
+  remove() { for (const k of this.gens) k.remove(); for (const b of this.boxes) b.enabled = false; this.g.removeFromParent(); this.g.traverse((m) => { if (m.geometry) m.geometry.dispose(); }); }
 }
 class BossFoe extends Foe {
   constructor(sys, kind, pos, cfg) {
@@ -647,7 +713,7 @@ class Kurozan {
 // ---- raids, projectiles, the boss fight -----------------------------------------------------------------------
 export class Villains {
   constructor() {
-    this.foes = []; this.raid = null; this.boss = null; this.proj = []; this.nextRaid = 30; this.trainLog = []; this.trainTotal = 0; this.dummies = []; this.erase = []; this.fightText = '';
+    this.foes = []; this.raid = null; this.boss = null; this.proj = []; this.nextRaid = 30; this.hide = {}; this.trainLog = []; this.trainTotal = 0; this.dummies = []; this.erase = []; this.fightText = '';
     this.arena = (() => { const y = G.colliders.groundAt(STADIUM.x, STADIUM.z, 2, 2, 0.5); return V().set(STADIUM.x, y, STADIUM.z); })();
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 160, 16, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(RED).multiplyScalar(0.6), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     beam.visible = false; beam.frustumCulled = false; G.scene.add(beam); this.beacon = beam;
@@ -657,8 +723,10 @@ export class Villains {
   busy() { return !!((this.raid && this.raid.spawned) || this.boss || G.elapsed < (this.calmUntil || 0)); }
   busyNear(p) { if (this.boss) return p.distanceTo(this.bossArena) < 90; return !!(this.raid && this.raid.spawned && p.distanceTo(this.raid.site) < 70); }
   heroOn() { this.nextRaid = Math.min(this.nextRaid, 30); }
-  heroOff() { this.endTraining(); this.endRaid(true); this.endBoss(true); for (const pr of this.proj) pr.orb.life = 0; this.proj.length = 0; }
+  heroOff() { this.endTraining(); this.endRaid(true); this.endBoss(true); for (const k of Object.keys(this.hide)) { this.hide[k].remove(); delete this.hide[k]; } for (const pr of this.proj) pr.orb.life = 0; this.proj.length = 0; }
   heroDown() {
+    // knocked out in a hideout assault: it ends here, with its own message (the pull-back rule is for walking away)
+    if (this.raid && this.raid.type === 'hideout') { const R = this.raid; G.ui.toast(`You were knocked out at ${R.name}. The crew regroup; the generators you wrecked stay wrecked.`, 'warn'); this.endRaid(true); }
     if (this.boss) { const b = this.boss; say(b.isBoss ? b.bossKind : 'kurozan', b.isBoss ? b.short : 'Kurozan', 'Come back when you are stronger.'); G.ui.toast(`${b.isBoss ? b.short : 'Kurozan'} leaves. Try again from the Hero Hall.`, 'warn'); this.endBoss(true); }
   }
   // the training ground at the Hero Hall: three robots that take every hit and never hit back
@@ -677,9 +745,64 @@ export class Villains {
   }
   spawnExtra(kind, pos) { const R = this.raid; pos.y = G.colliders.groundAt(pos.x, pos.z, (pos.y || G.player.pos.y) + 2, 4, 0.3); const f = new Foe(this, kind, pos); f.state = 'fight'; this.foes.push(f); if (R) R.foes.push(f); return f; }
   markers() {
-    if (this.raid) return [{ x: this.raid.site.x, z: this.raid.site.z, color: RED, story: true }];
-    if (this.boss) return [{ x: this.bossArena.x, z: this.bossArena.z, color: RED, story: true }];
-    return [];
+    const out = [];
+    if (this.raid) out.push({ x: this.raid.site.x, z: this.raid.site.z, color: RED, story: true });
+    else if (this.boss) out.push({ x: this.bossArena.x, z: this.bossArena.z, color: RED, story: true });
+    if (G.heroes && G.heroes.on) for (const k of Object.keys(HIDEOUTS)) if (this.found(k) && !(this.raid && this.raid.type === 'hideout' && this.raid.owner === k)) out.push({ x: HIDEOUTS[k].x, z: HIDEOUTS[k].z, color: VILLAINS[k].color });
+    return out;
+  }
+  // ---- hideouts ---------------------------------------------------------------------------------------
+  intelNeed(k) { return 2 + ((this.st.hideLv || {})[k] || 0); }
+  found(k) { return ((this.st.intel || {})[k] || 0) >= this.intelNeed(k); }
+  // a raid by this crew stopped: a piece of intel on their hideout
+  addIntel(k) {
+    if (!HIDEOUTS[k]) return; const st = this.st; st.intel = st.intel || {}; if (this.found(k)) return;
+    st.intel[k] = (st.intel[k] || 0) + 1; const d = HIDEOUTS[k], v = VILLAINS[k];
+    if (this.found(k)) { G.ui.flash('HIDEOUT FOUND', 1.8); setTimeout(() => G.ui.toast(`Intel complete: ${v.crew} are based at ${d.name} (${d.area})${d.where ? ', ' + d.where : ''}. It is on your map in their colour; Hero Hall ▸ Hideouts sets a route. Go in when you are ready.`, 'good'), 2200); }
+    else { const n = st.intel[k], need = this.intelNeed(k); setTimeout(() => G.ui.toast(`Intel on ${poss(k)} hideout: ${n} of ${need}.`, 'info'), 2200); }
+  }
+  // build the hideouts you have found when you are within 500 m, put them away past 700 m; go within
+  // 110 m of one (with nothing else on) and the assault starts
+  hideStep(dt, t) {
+    const P = G.player.pos, H = G.heroes;
+    for (const k of Object.keys(HIDEOUTS)) {
+      const d = HIDEOUTS[k], dist = Math.hypot(P.x - d.x, P.z - d.z), on = this.hide[k], taking = this.raid && this.raid.type === 'hideout' && this.raid.owner === k;
+      if (!on && this.found(k) && dist < 500) this.hide[k] = new Hideout(this, k);
+      else if (on && !taking && (dist > 700 || !this.found(k))) { on.remove(); delete this.hide[k]; }
+      if (this.hide[k]) this.hide[k].update(dt, t);
+      if (this.hide[k] && !this.raid && !this.boss && !H.training && H.alive && dist < 110 && G.player.pos.y > this.hide[k].at.y - 6) this.startHideout(k);
+    }
+  }
+  startHideout(k) {
+    const d = HIDEOUTS[k], v = VILLAINS[k], H = this.hide[k] || (this.hide[k] = new Hideout(this, k)), lv = (this.st.hideLv || {})[k] || 0;
+    for (const g of H.gens) g.reset();
+    const R = (this.raid = { owner: k, type: 'hideout', site: H.at.clone(), name: d.name, area: d.area, crowd: 0, n: 0, queue: [], foes: [], spawned: true, built: true, t: 0, wave: 1, lv, hideout: H, gens: H.gens, reinforce: 14, label: 'Their hideout',
+      // Vektor's base is held mostly on the ground: a fight this long under a sky full of drones is no fun for heroes who fight up close
+      kinds: k === 'vektor' ? ['gunner', 'hdrone', 'brute', 'gunner', 'hdrone', 'gunner', 'brute', 'hdrone', 'gunner'] : null });
+    this.queueWave(R, 4 + lv); R.n = R.queue.length;
+    this.beacon.material.color.set(v.color).multiplyScalar(0.6);
+    G.ui.flash('HIDEOUT', 1.6); G.ui.toast(`${poss(k)} hideout at ${d.name}: three waves, three generators calling in more of them, and ${d.lieut.name} at the end.`, 'warn');
+    say(k, d.lieut.name, d.line); sting('hit');
+    if (G.audio) G.audio.tone(70, 1.2, 0.1, 'sawtooth', null, 0.2, 0.7);
+  }
+  // the lieutenant: a bigger, tougher, harder-hitting member of the crew, with a health bar of their own
+  spawnLieutenant(R) {
+    const d = HIDEOUTS[R.owner], c = R.site, x = c.x, z = c.z - 6;
+    const f = new Foe(this, d.lieut.kind, V().set(x, G.colliders.groundAt(x, z, c.y + 3, 4, 0.4), z));
+    const s = d.lieut.kind === 'brute' ? 1.35 : 1.25; f.rig.root.scale.multiplyScalar(s); f.baseScale = f.rig.root.scale.x; f.h *= s; f.r *= s;
+    f.hp = f.max = Math.round((d.lieut.kind === 'brute' ? 850 : 650) * (1 + R.lv * 0.3) * G.heroes.diff.hp); f.pow = 1.3 + R.lv * 0.2; f.name = d.lieut.name; f.lieut = true; f.state = 'fight';
+    this.foes.push(f); R.foes.push(f); R.lieut = f;
+    G.heroes.showCard(artUrl(d.face), d.lieut.title, `guards ${d.name}`, VILLAINS[R.owner].color, 3.2, false, R.owner); say(R.owner, d.lieut.name, d.line);
+  }
+  completeHideout() {
+    const R = this.raid, k = R.owner, st = this.st, d = HIDEOUTS[k], v = VILLAINS[k], pay = 1500 + R.lv * 500;
+    st.hideLv = st.hideLv || {}; st.taken = st.taken || {}; st.intel = st.intel || {};
+    st.taken[k] = (st.taken[k] || 0) + 1; st.hideLv[k] = Math.min(3, (st.hideLv[k] || 0) + 1); st.intel[k] = 0; G.state.done.heroHideout = true;
+    this.quiet = this.quiet || {}; this.quiet[k] = G.elapsed + 600;
+    G.economy.earn(pay, `taking ${poss(k)} hideout`); if (G.heroes) G.heroes.addXp(300); G.ui.flash('HIDEOUT TAKEN', 2.4); sting('boss');
+    const H = R.hideout; H.wreck(); delete this.hide[k]; if (this.wrecked) delete this.wrecked[k]; setTimeout(() => H.remove(), 6000);
+    R.foes.length = 0; this.endRaid(false); this.nextRaid = 150 * G.heroes.diff.raid;
+    setTimeout(() => G.ui.toast(`${v.crew} have lost their base: no raids from them for a while. They will set up again; ${this.intelNeed(k)} of their raids will find it, tougher than before.`, 'good'), 2600);
   }
   // a villain projectile: hits the hero, residents and walls
   shoot(o) { const pr = { pos: o.from.clone(), vel: o.dir.clone().multiplyScalar(o.speed), life: 4, ...o, orb: G.fx.orb(o.color, o.r) }; pr.orb.p.copy(pr.pos); this.proj.push(pr); }
@@ -714,8 +837,11 @@ export class Villains {
     for (let i = this.foes.length - 1; i >= 0; i--) { const f = this.foes[i]; f.update(dt, t); if (f.gone) this.foes.splice(i, 1); }
     if (this.boss) { this.boss.update(dt, t); if (this.boss && this.boss.gone) { this.boss = null; this.calmUntil = G.elapsed + 5; } }
     if (!this.boss && this.stormFrom) { G.env.setWeather('rain'); this.stormFrom = null; }
-    if (H && H.on) H.bossBar(this.boss && this.boss.alive ? { title: this.boss.title, hp: this.boss.hp, max: this.boss.max, phaseText: this.fightText, face: this.boss.face || (this.boss.phase === 'dragon' ? 'villain-dragon.jpg' : 'villain-kurozan.jpg') } : null);
+    const LT = !this.boss && this.raid && this.raid.lieut && this.raid.lieut.alive ? this.raid.lieut : null;
+    if (H && H.on && LT) H.bossBar({ title: HIDEOUTS[this.raid.owner].lieut.title, hp: LT.hp, max: LT.max, phaseText: 'Lieutenant', face: HIDEOUTS[this.raid.owner].face });
+    else if (H && H.on) H.bossBar(this.boss && this.boss.alive ? { title: this.boss.title, hp: this.boss.hp, max: this.boss.max, phaseText: this.fightText, face: this.boss.face || (this.boss.phase === 'dragon' ? 'villain-dragon.jpg' : 'villain-kurozan.jpg') } : null);
     if (!H || !H.on) return;
+    this.hideStep(dt, t);
     // raids
     if (!this.raid && !this.boss && !H.training) { this.nextRaid -= dt; if (this.nextRaid <= 0) this.startRaid(H.missionRaid ? H.missionRaid() || {} : {}); }
     const R = this.raid;
@@ -737,6 +863,17 @@ export class Villains {
       if (R.type === 'defend' && R.spawned) {
         if (R.core.hp <= 0) { G.ui.flash('UPLINK LOST', 2); G.ui.toast("The uplink is down: the orbital lift is cut off until the city repairs it. The crew pull back.", 'warn'); this.endRaid(true); return; }
         if (left === 0 && R.wave < 3) { R.wave++; this.queueWave(R, 4 + R.wave); G.ui.flash(`WAVE ${R.wave} OF 3`, 1.4); }
+      }
+      if (R.type === 'hideout') {
+        const gensUp = R.gens.filter((g) => g.alive).length, alive = R.foes.filter((f) => f.alive).length;
+        if (left === 0 && R.wave < 3) { R.wave++; this.queueWave(R, 3 + R.wave + R.lv); R.n += R.queue.length; G.ui.flash(`WAVE ${R.wave} OF 3`, 1.4); if (R.wave === 3) this.spawnLieutenant(R); const HH = G.heroes; if (HH.alive) HH.hp = Math.min(HH.max, HH.hp + HH.max * 0.3); }   // a breather between waves: 30% of your health back
+        if (gensUp && R.wave < 3 || gensUp && alive < 4) { R.reinforce -= dt * gensUp / 3; if (R.reinforce <= 0 && alive < 6) { R.reinforce = 15; const a = Math.random() * 6.28, kinds = { kurozan: ['brute', 'gunner', 'drone'], vektor: ['hdrone', 'gunner', 'brute'], shade: ['ninja', 'ninja', 'gunner'] }[R.owner], flyers = R.foes.filter((q) => q.alive && q.flying).length; let kind = kinds[Math.floor(Math.random() * 3)]; if (flyers >= 3 && (kind === 'drone' || kind === 'hdrone')) kind = 'gunner';   // no more than three in the air: heroes who fight up close can only hit them on a swoop
+          const f = this.spawnExtra(kind, V().set(R.site.x + Math.cos(a) * 14, R.site.y, R.site.z + Math.sin(a) * 14)); G.fx.ring(V().set(f.pos.x, R.site.y + 0.2, f.pos.z), VILLAINS[R.owner].color, 0.4, 3, 0.5); } }
+        R.back = d > 260 ? (R.back || 0) + dt : 0;
+        if (R.back > 10) { G.ui.toast(`You pulled back from ${R.name}. The hideout is still there and the crew regroup, but the generators you wrecked stay wrecked.`, 'info'); this.endRaid(true); return; }
+        if (!G.minigame) G.ui.setObjective({ title: `${poss(R.owner)} hideout`, text: `Wave ${R.wave} of 3 · ${left} left · generators ${gensUp} of 3${R.lieut && R.lieut.alive ? ' · ' + R.lieut.name : ''}`, sub: gensUp ? 'Wreck the generators: they keep calling in reinforcements' : R.wave < 3 ? 'Generators down. Finish the crew.' : 'Last wave' });
+        if (left === 0 && R.wave >= 3 && !gensUp) this.completeHideout();
+        return;
       }
       const cagesLeft = (R.cages || []).filter((c) => c.alive).length, truckLeft = R.truck && R.truck.alive;
       const what = R.type === 'getaway' ? (R.truck ? (R.truck.alive ? ` · stop the car (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 700 m)` : ' · the crooks bailed out') : ' · stop the car') : R.type === 'mugging' ? (R.victim && R.victim.saved ? ' · saved' : ' · save the resident') : R.type === 'rescue' ?` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
@@ -783,7 +920,8 @@ export class Villains {
   startRaid(force = {}) {
     // (the first thing to happen in a session is still a robot raid; crimes can come after it)
     const st = this.st, crime = force.owner === 'street' || (!force.owner && !force.type && (st.raids >= 1 || this.anyRaid) && Math.random() < 0.5); this.anyRaid = true;
-    const owner = crime ? 'street' : force.owner || (st.raids < 1 ? 'kurozan' : ['kurozan', 'vektor', 'shade'][Math.floor(Math.random() * 3)]);
+    const crews = ['kurozan', 'vektor', 'shade'].filter((k) => !(this.quiet && this.quiet[k] > G.elapsed)), pool = crews.length ? crews : ['kurozan', 'vektor', 'shade'];   // a crew that just lost its hideout keeps its head down
+    const owner = crime ? 'street' : force.owner || (st.raids < 1 ? 'kurozan' : pool[Math.floor(Math.random() * pool.length)]);
     const r = Math.random(), type = force.type || (crime ? ['mugging', 'mugging', 'robbery', 'getaway'][Math.floor(r * 4)] : st.raids < 1 ? 'smash' : r < 0.4 ? 'smash' : r < 0.65 ? 'rescue' : r < 0.85 ? 'heist' : 'defend');
     let s = this.pickSite();
     if (type === 'defend' && G.orbital) { const x = G.orbital.tx + 22, z = G.orbital.tz + 22; s = { pos: V().set(x, G.colliders.groundAt(x, z, 20, 30, 0.5), z), name: 'the orbital lift', area: 'Aeroport' }; }
@@ -799,7 +937,7 @@ export class Villains {
   }
   queueWave(R, n) {
     if (R.type === 'getaway') return;   // the getaway's crooks are in the car until it is stopped
-    const kinds = { kurozan: ['brute', 'gunner', 'gunner', 'brute', 'drone', 'gunner', 'brute', 'drone', 'gunner'], vektor: ['hdrone', 'hdrone', 'gunner', 'hdrone', 'hdrone', 'brute', 'hdrone', 'hdrone', 'gunner'], shade: ['ninja', 'ninja', 'ninja', 'gunner', 'ninja', 'ninja', 'brute', 'ninja', 'ninja'], street: R.type === 'robbery' ? ['thug', 'crook', 'thug', 'crook'] : ['thug', 'thug'] }[R.owner];
+    const kinds = R.kinds || { kurozan: ['brute', 'gunner', 'gunner', 'brute', 'drone', 'gunner', 'brute', 'drone', 'gunner'], vektor: ['hdrone', 'hdrone', 'gunner', 'hdrone', 'hdrone', 'brute', 'hdrone', 'hdrone', 'gunner'], shade: ['ninja', 'ninja', 'ninja', 'gunner', 'ninja', 'ninja', 'brute', 'ninja', 'ninja'], street: R.type === 'robbery' ? ['thug', 'crook', 'thug', 'crook'] : ['thug', 'thug'] }[R.owner];
     const c = R.site, r0 = R.type === 'defend' ? 22 : R.owner === 'street' ? 2.2 : 4, spread = R.owner === 'street' ? 2 : 7;   // a mugging's thugs stand right by their victim
     for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + R.wave, r = r0 + Math.random() * spread, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; R.queue.push({ kind: kinds[i % kinds.length], pos: V().set(x, G.colliders.groundAt(x, z, c.y + 3, 3, 0.3), z) }); }
   }
@@ -814,8 +952,9 @@ export class Villains {
   }
   completeRaid() {
     if (this.raid.owner === 'street') return this.completeCrime();
+    if (this.raid.type === 'hideout') return this.completeHideout();
     const R = this.raid, bonus = (R.freed || 0) * 100 + (R.truck && R.truck.done === 'stopped' ? 300 : 0) + (R.type === 'defend' ? 400 : 0), pay = 250 + R.n * 50 + bonus; this.st.raids++; G.state.done.heroRaid = true;
-    G.economy.earn(pay, `stopping the raid at ${R.name}`); if (G.heroes) { G.heroes.addXp(100); G.heroes.raidDone(R); } G.ui.flash('RAID STOPPED', 2); sting('win');
+    G.economy.earn(pay, `stopping the raid at ${R.name}`); if (G.heroes) { G.heroes.addXp(100); G.heroes.raidDone(R); } this.addIntel(R.owner); G.ui.flash('RAID STOPPED', 2); sting('win');
     this.cheer(R);
     this.endRaid(false); this.nextRaid = (80 + Math.random() * 60) * G.heroes.diff.raid;
     if (R.type === 'rescue' && R.freed) G.ui.toast(`${R.freed} resident${R.freed === 1 ? '' : 's'} freed.`, 'good');

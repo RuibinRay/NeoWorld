@@ -672,6 +672,33 @@ counted on their own (they do not bring Kurozan closer), and the next incident c
 ◈220), a getaway stopped (◈310) and one that escaped after 40 s; the first incident of a fresh session
 was Kurozan's raid, and 208 of the next 400 were crimes.
 
+**Villain hideouts** (`systems/villains.js`, Hero Hall ▸ Hideouts): each crew has a base. Every raid of
+theirs you stop is a piece of intel (a toast counts it); with 2 pieces (one more each time the base
+is rebuilt) the hideout is found and shows on the map as a ring in the crew's colour, and Hero Hall ▸
+Hideouts sets a route. Kurozan's robots hold **the container yard** in the Industrial Nexus, beside the
+gantry crane; Vektor's drones **the hangar apron** at the Aeroport; the Shadow Clan **the neon deck**, up
+on the Neon District's raised level. Each is a walled square 36 m across with a gate in every side,
+crates for cover, banner masts and floodlights. Go within about 100 m and the assault starts: three
+waves of the crew, three **generators** that keep calling in more of them every few seconds until you
+wreck them, and in the last wave a **lieutenant** with a health bar of their own (Ironjaw, a
+Stormbreaker brute half again as big; Overseer V-9 for Vektor; Kage for Shade), about 6 times a
+brute's health and hitting 1.3 times as hard. Clearing a wave gives back 30% of your health. Leave
+(more than 260 m for 10 s, or knocked out) and the crew regroup, but the hideout stays found and the
+generators you wrecked stay wrecked, so every try gets you further. Vektor's base is held mostly on
+the ground (gunners and brutes, fewer drones than his raids), and no hideout has more than three
+flyers out at once. Taking it pays
+◈1,500 (◈500 more each time it is rebuilt) and 300 experience, and that crew stay quiet for ten minutes;
+then they set up again, tougher: stronger generators and lieutenant, a bigger crew, one more raid of
+intel to find it (up to level 4). Progress (intel, levels, hideouts taken) is saved with the hero
+stats. Tested with a scripted player at 1/60 s (level 1, no upgrades, walking in from the gate,
+punching whatever is nearest, powers at random, never dodging): on the final settings it took the
+hideout in 12 of 21 tries (every hero at least once), in 23-75 s, usually ending with a quarter to
+two thirds of its health; Warden and Ember had the easiest time, Kurozan's yard was the hardest.
+The first version (smaller generators, no lieutenant bar) fell in 35 s, too quick for a base; a
+bigger crew after that knocked out even Bulwark, so the crew went back down and the generators and
+lieutenant grew instead. Vektor's drones did 180 of 246 damage to Bulwark in one try, which is why
+his base is now held on the ground.
+
 **Playtest: every hero in a real fight, and what it changed.** Each of the eleven heroes fought raids at
 the normal frame rate (1/60 s) with a scripted player: real key presses and aiming, cooldowns as they
 are, no health top-ups, walking in from 40 m. Robot raids, Vektor's drone raids, Shade's raids, the
