@@ -24,11 +24,13 @@ const LEADERS = { vcore: { name: VILLAINS.vektor.name, hp: VILLAINS.vektor.hp },
 class Foe {
   constructor(sys, kind, pos) {
     this.sys = sys; this.kind = kind; const d = CREW[kind] || LEADERS[kind];
+    this.ai = d.ai || kind; this.human = !!d.human;   // street crooks fight the way a brute or a gunner does, but are people, not robots
     this.name = d.name; this.hp = this.max = Math.round(d.hp * G.heroes.diff.hp); this.pos = pos.clone(); this.vel = V(); this.vy = 0; this.air = 0; this.yaw = Math.random() * 6.28;
     this.alive = true; this.team = 'villain'; this.flying = kind === 'drone' || kind === 'hdrone' || kind === 'vcore'; this.big = kind === 'vcore' || kind === 'shade'; this.leader = this.big;
     this.h = kind === 'brute' ? 1.35 : kind === 'gunner' || kind === 'ninja' || kind === 'shade' ? 1.0 : 0; this.r = kind === 'brute' ? 0.8 : kind === 'vcore' ? 1.7 : kind === 'gunner' || kind === 'ninja' || kind === 'shade' ? 0.5 : 0.6;
     this.stun = 0; this.burn = 0; this.cool = 1 + Math.random() * 2; this.slamT = 6 + Math.random() * 4; this.wind = null; this.state = 'smash'; this.dead = 0; this.flash = 0; this.anim = 'idle'; this.away = 0;
     this.smashT = 2 + Math.random() * 4; this.strafe = Math.random() < 0.5 ? 1 : -1; this.hover = 6 + Math.random() * 2;
+    if (this.human) { this.h = 1.0; this.r = 0.5; }
     if (this.flying) {
       if (kind === 'vcore') {   // Vektor's core: a black sphere in spinning red rings
         const g = new THREE.Group(), rings = [];
@@ -40,7 +42,8 @@ class Foe {
       const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.3, 0.2) })); eye.position.set(0, -0.05, 0.3); this.rig.root.add(eye);
       this.pos.y += this.hover;
     } else {
-      this.rig = makeHumanoid(d.look);
+      this.rig = makeHumanoid(d.looks ? d.looks[Math.floor(Math.random() * d.looks.length)] : d.look);
+      if (kind === 'crook') { const gun = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.2), std('#16171c', 0.4, 0.8)); gun.position.set(0, -0.38, 0.1); this.rig.elbR.add(gun); }   // a pistol
       if (kind === 'gunner') { const gun = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.62), std('#20242c', 0.4, 0.8)); gun.position.set(0, -0.36, 0.24); this.rig.elbR.add(gun); const tip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), neon('#ff8a00', 2)); tip.position.set(0, -0.36, 0.56); this.rig.elbR.add(tip); }
       if (kind === 'ninja' || kind === 'shade') for (const e of kind === 'shade' ? [this.rig.elbL, this.rig.elbR] : [this.rig.elbR]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 0.008), std('#c9ced8', 0.2, 0.9)); b.position.set(0, -0.58, 0.035); e.add(b); }
       if (kind === 'shade') { this.callT = 10; for (const sx of [-1, 1]) { const ey = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.01), neon('#b26bff', 2.4)); ey.position.set(sx * 0.043, 0.02, 0.122); this.rig.head.add(ey); } }
@@ -79,8 +82,11 @@ class Foe {
   die(dir) {
     this.alive = false; G.combat.remove(this); this.dead = 0.01; this.dieDir = dir ? dir.clone() : V().set(0, 0, 1);
     const c = V().set(this.pos.x, this.pos.y + (this.flying ? 0 : 1.1), this.pos.z);
-    G.fx.spark(c, '#ffb347', 24, 8, 0.6, 0.16); G.fx.blast(c, '#ff8a3c', 0.3, 1.6, 0.3); G.fx.smoke(c, 4, '#2a2c31', 1.5, 2);
-    if (G.audio) { G.audio.burst(0.5, 0.18, 500); G.audio.tone(160, 0.4, 0.05, 'sawtooth', null, 0, 0.4); }
+    if (this.human) { G.fx.dust(V().set(this.pos.x, this.pos.y, this.pos.z), 6, 0.8); G.fx.spark(c, '#ffffff', 6, 3, 0.4, 0.08, 0); if (G.audio) G.audio.thud(0.5); }   // a person is knocked out, not blown apart
+    else {
+      G.fx.spark(c, '#ffb347', 24, 8, 0.6, 0.16); G.fx.blast(c, '#ff8a3c', 0.3, 1.6, 0.3); G.fx.smoke(c, 4, '#2a2c31', 1.5, 2);
+      if (G.audio) { G.audio.burst(0.5, 0.18, 500); G.audio.tone(160, 0.4, 0.05, 'sawtooth', null, 0, 0.4); }
+    }
     this.sys.onKill(this);
   }
   remove() { this.rig.root.removeFromParent(); G.combat.remove(this); this.alive = false; }
@@ -90,7 +96,7 @@ class Foe {
     if (this.dead > 0) { // falling over, sparking, sinking away
       this.dead += dt;
       if (this.flying) { this.vy -= 18 * dt; this.pos.y += this.vy * dt; const g = col.groundAt(this.pos.x, this.pos.z, this.pos.y + 1, 1, 0.2); if (this.pos.y <= g + 0.3) { this.pos.y = g + 0.3; if (!this.boomed) { this.boomed = true; G.fx.blast(this.pos, '#ff8a3c', 0.3, 2.2, 0.35); G.fx.dust(this.pos, 10, 1); G.audio && G.audio.burst(0.4, 0.15, 300); } } root.rotation.z += dt * 6; }
-      else { root.rotation.order = 'YXZ'; root.rotation.x = -Math.min(1.5, this.dead * 3); if (this.dead > 2) root.position.y -= dt * 0.5; if (Math.random() < dt * 8) G.fx.spark(V().set(this.pos.x, this.pos.y + 0.3, this.pos.z), '#ffd34d', 2, 3, 0.3, 0.08); }
+      else { root.rotation.order = 'YXZ'; root.rotation.x = -Math.min(1.5, this.dead * 3); if (this.dead > 2) root.position.y -= dt * 0.5; if (!this.human && Math.random() < dt * 8) G.fx.spark(V().set(this.pos.x, this.pos.y + 0.3, this.pos.z), '#ffd34d', 2, 3, 0.3, 0.08); }
       root.position.set(this.pos.x, this.flying ? this.pos.y : root.position.y || this.pos.y, this.pos.z);
       if (this.dead > 3) { this.remove(); this.gone = true; }
       return;
@@ -115,12 +121,12 @@ class Foe {
       if (this.cool <= 0 && dd < (this.flying ? 12 : 3.2)) { this.cool = 1.4 + Math.random() * 0.5; this.anim = 'heavy'; this.sys.raid.core.damage(this.kind === 'brute' ? 9 : 6); if (this.flying) G.fx.beam(this.pos.clone(), V().set(c.x, c.y + 2, c.z), '#ff2a4f', 0.06, 0.15); }
     } else if (this.state === 'fight' && H && H.alive) {
       this.cool -= dt; this.slamT -= dt;
-      if (this.kind === 'brute') {
-        if (dist > 2.1) { mx = dx / dist; mz = dz / dist; sp = dist > 8 ? 5 : 3.6; }
-        if (this.slamT <= 0 && dist < 6) { this.slamT = 7 + Math.random() * 3; this.wind = { t: 0.8, anim: 'raise', fn: () => this.slam() }; G.fx.zone(V().set(this.pos.x, this.pos.y, this.pos.z), 4.5, 0.8); }
+      if (this.ai === 'brute') {
+        if (dist > 2.1) { mx = dx / dist; mz = dz / dist; sp = dist > 8 ? (this.human ? 5.5 : 5) : 3.6; }
+        if (this.slamT <= 0 && dist < 6 && this.kind === 'brute') { this.slamT = 7 + Math.random() * 3; this.wind = { t: 0.8, anim: 'raise', fn: () => this.slam() }; G.fx.zone(V().set(this.pos.x, this.pos.y, this.pos.z), 4.5, 0.8); }
         else if (this.cool <= 0 && dist < 2.6) { this.cool = 1.3 + Math.random() * 0.4; this.wind = { t: 0.35, anim: 'guard', fn: () => this.punch() }; }
         this.yaw = dampAngle(this.yaw, toYaw, 8, dt);
-      } else if (this.kind === 'gunner') {
+      } else if (this.ai === 'gunner') {
         const want = dist < 9 ? -1 : dist > 19 ? 1 : 0, tx = dz / dist * this.strafe, tz = -dx / dist * this.strafe;
         mx = dx / dist * want + tx * 0.6; mz = dz / dist * want + tz * 0.6; sp = 3.2; if (Math.random() < dt * 0.3) this.strafe *= -1;
         if (this.cool <= 0 && dist < 34) { this.cool = 1.4 + Math.random() * 0.6; this.wind = { t: 0.3, anim: 'castR', fn: () => this.shoot() }; }
@@ -172,7 +178,14 @@ class Foe {
       }
     } else { // smashing up the street until a hero comes
       const s = this.sys.raid ? this.sys.raid.site : this.pos, ddx = s.x - this.pos.x, ddz = s.z - this.pos.z, dd = Math.hypot(ddx, ddz);
-      if (!this.flying) {
+      if (this.human) {
+        // street crooks do not smash walls: they crowd in on the victim (or stand guard by the loot), menacing,
+        // and anyone nearby runs
+        const v = this.sys.raid && this.sys.raid.victim, at = v && !v.saved ? v.pos : s, ax = at.x - this.pos.x, az = at.z - this.pos.z, ad = Math.hypot(ax, az);
+        if (ad > 2.2) { mx = ax / ad; mz = az / ad; sp = 1.8; }
+        this.yaw = dampAngle(this.yaw, Math.atan2(ax, az), 5, dt); this.anim = ad <= 2.2 ? (Math.floor(t * 1.3 + this.strafe) % 2 ? 'talk' : 'guard') : 'walk';
+        this.smashT -= dt; if (this.smashT <= 0) { this.smashT = 5 + Math.random() * 4; if (dist < 120) this.scare(); }
+      } else if (!this.flying) {
         if (dd > 12) { mx = ddx / dd; mz = ddz / dd; sp = 2.5; this.yaw = dampAngle(this.yaw, Math.atan2(ddx, ddz), 5, dt); }
         this.smashT -= dt;
         if (this.smashT <= 0 && dist < 150 && G.damage.markList.length < 120) { this.smashT = 6 + Math.random() * 6; this.yaw += (Math.random() - 0.5) * 2.5; this.wind = { t: 0.4, anim: 'heavy', fn: () => { const c = V().set(this.pos.x, this.pos.y + 1.2, this.pos.z), f = V().set(Math.sin(this.yaw), 0, Math.cos(this.yaw)); if (!G.damage.wallHit(c, f, 4, 1.1, 'blunt', { quiet: dist > 60 })) G.damage.impact(V().set(this.pos.x + f.x * 1.5, col.groundAt(this.pos.x + f.x * 1.5, this.pos.z + f.z * 1.5, this.pos.y + 1, 1, 0.2), this.pos.z + f.z * 1.5), V().set(0, 1, 0), 0.9, 'blunt', { quiet: dist > 60 }); this.scare(); } }; }
@@ -206,7 +219,7 @@ class Foe {
   punch() {
     const f = V().set(Math.sin(this.yaw), 0, Math.cos(this.yaw)), c = this.centre().addScaledVector(f, 1.3);
     this.anim = 'punchR'; if (G.audio) G.audio.burst(0.12, 0.08, 400);
-    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: 10, knock: 7, dir: f, src: this });
+    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: this.human ? 6 : 10, knock: this.human ? 5 : 7, dir: f, src: this });
   }
   slam() {
     const c = V().set(this.pos.x, this.pos.y + 0.3, this.pos.z);
@@ -217,6 +230,12 @@ class Foe {
   }
   shoot() {
     const H = G.heroes; if (!H || !H.alive) return;
+    if (this.human) {   // a crook's pistol: small, quick, yellow shots, less damage than a robot's cannon
+      const from = this.rig.elbR.localToWorld(V().set(0, -0.38, 0.22)), aim = H.centre().clone(); aim.x += (Math.random() - 0.5) * 1.8; aim.z += (Math.random() - 0.5) * 1.8; aim.y += (Math.random() - 0.5) * 0.8;
+      this.sys.shoot({ from, dir: aim.sub(from).normalize(), speed: 40, r: 0.08, color: '#ffe066', dmg: 5, knock: 2, blast: 0, copy: 'volley', src: this });
+      if (G.audio && G.player.pos.distanceTo(this.pos) < 60) G.audio.burst(0.06, 0.07, 2200, 'bandpass');
+      return;
+    }
     const from = this.flying ? V().copy(this.pos).add(V().set(0, -0.2, 0)) : this.rig.elbR.localToWorld(V().set(0, -0.36, 0.56)), aim = H.centre().clone();
     aim.x += G.player.vel.x * 0.25 + (Math.random() - 0.5) * 1.4; aim.z += G.player.vel.z * 0.25 + (Math.random() - 0.5) * 1.4; aim.y += (Math.random() - 0.5) * 0.8;
     const dir = aim.sub(from).normalize();
@@ -299,6 +318,81 @@ class Truck {   // an armoured getaway truck: stop it before it is 450 m away
   }
   remove() { this.alive = false; G.combat.remove(this); this.g.removeFromParent(); }
 }
+// ---- street crime: the resident being mugged, the getaway car, a robbery's loot --------------------------------------
+class Victim {   // hands up while the crooks crowd round; once they are down, thanks you and walks off
+  constructor(sys, pos) {
+    this.sys = sys; this.pos = pos.clone(); this.saved = false; this.t = 0; this.yaw = Math.random() * 6.28;
+    this.rig = makeHumanoid({ kind: 'human', skin: ['#f1c9a5', '#c68d6b', '#7b4a2f', '#e0ac7e'][Math.floor(Math.random() * 4)], top: PRISONER_TOPS[Math.floor(Math.random() * PRISONER_TOPS.length)], bottom: '#1c1f27', hairStyle: Math.floor(Math.random() * 13), height: 1.62 + Math.random() * 0.22 });
+    this.rig.root.position.copy(pos); G.scene.add(this.rig.root);
+  }
+  save() {
+    if (this.saved) return; this.saved = true; this.t = 0; const P = G.player.pos; this.yaw = Math.atan2(P.x - this.pos.x, P.z - this.pos.z);
+    G.ui.say({ pos: this.pos, h: 2.0 }, ['Thank you!', 'They took... no, they did not take anything. Thank you!', 'I owe you one!', 'You came out of nowhere!'][Math.floor(Math.random() * 4)], 3);
+    G.fx.ring(V().set(this.pos.x, this.pos.y + 1, this.pos.z), '#7dff9c', 0.3, 2.5, 0.4); if (G.audio) G.audio.tone(880, 0.2, 0.05, 'triangle');
+    if (this.sys.raid) this.sys.raid.freed = (this.sys.raid.freed || 0) + 1;
+  }
+  update(dt) {
+    const root = this.rig.root;
+    if (!this.saved) {   // facing the nearest crook, hands up
+      let best = null, bd = 1e9; for (const f of (this.sys.raid ? this.sys.raid.foes : [])) { if (!f.alive) continue; const d = f.pos.distanceTo(this.pos); if (d < bd) { bd = d; best = f; } }
+      if (best) this.yaw = dampAngle(this.yaw, Math.atan2(best.pos.x - this.pos.x, best.pos.z - this.pos.z), 4, dt);
+      animateRig(this.rig, dt, 'raise', 0); root.position.copy(this.pos); root.rotation.y = this.yaw; return;
+    }
+    this.t += dt;
+    if (this.t > 2.6) { this.pos.x += Math.sin(this.yaw + Math.PI) * 1.6 * dt; this.pos.z += Math.cos(this.yaw + Math.PI) * 1.6 * dt; this.pos.y = G.colliders.groundAt(this.pos.x, this.pos.z, this.pos.y + 1, 1, 0.3); }
+    root.position.copy(this.pos); root.rotation.y = this.t > 2.6 ? this.yaw + Math.PI : this.yaw; animateRig(this.rig, dt, this.t > 2.6 ? 'walk' : 'wave', this.t > 2.6 ? 1.6 : 0);
+    if (this.t > 10) this.remove();
+  }
+  remove() { this.rig.root.removeFromParent(); this.gone = true; }
+}
+class Getaway {   // a getaway car tearing off down the streets: stop it within 600 m, then the crooks inside bail out
+  constructor(sys, pos) {
+    this.sys = sys; this.start = pos.clone(); this.pos = pos.clone(); this.h = 0.8; this.r = 1.6; this.alive = true; this.team = 'villain'; this.big = true; this.name = 'Getaway car';
+    this.hp = this.max = Math.round(150 * G.heroes.diff.hp); this.speed = 15;
+    let best = 0; for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, d = G.colliders.raycast(pos.x, pos.y + 1, pos.z, Math.sin(a), 0, Math.cos(a), 200); if (d > best) { best = d; this.yaw = a; } }
+    const g = (this.g = new THREE.Group()); G.scene.add(g); const paint = std('#7a1f2a', 0.35, 0.6);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 4.4), paint); body.position.y = 0.75; body.castShadow = true; g.add(body);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.6, 2.2), std('#1a1c22', 0.15, 0.9)); cab.position.set(0, 1.4, -0.2); cab.castShadow = true; g.add(cab);
+    for (const sx of [-1, 1]) {
+      for (const z of [-1.4, 1.4]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12), std('#14151a', 0.8, 0.1)); w.rotation.z = Math.PI / 2; w.position.set(sx * 0.92, 0.38, z); g.add(w); }
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.05), neon('#ff2a2a', 2.2)); tl.position.set(sx * 0.6, 0.9, -2.22); g.add(tl);
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.05), neon('#f4fbff', 2.2)); hl.position.set(sx * 0.6, 0.9, 2.22); g.add(hl);
+    }
+    G.combat.add(this);
+  }
+  hit(dmg) { if (!this.alive) return; this.hp -= dmg; G.fx.spark(V().set(this.pos.x, this.pos.y + 1, this.pos.z), '#ffd34d', 6, 5, 0.3, 0.1); if (this.hp <= 0) this.stop(true); }
+  stop(wrecked) {
+    this.alive = false; G.combat.remove(this); this.done = wrecked ? 'stopped' : 'escaped';
+    if (wrecked) {
+      const c = V().set(this.pos.x, this.pos.y + 1, this.pos.z); G.fx.blast(c, '#ff8a3c', 0.4, 2.6, 0.35); G.fx.smoke(c, 6, '#1c1d22', 2.5, 2); if (G.audio) G.audio.burst(0.6, 0.2, 220);
+      // the crooks bail out of both doors and fight
+      for (const sx of [-1, 1]) { const x = this.pos.x + Math.cos(this.yaw) * sx * 2.2, z = this.pos.z - Math.sin(this.yaw) * sx * 2.2; this.sys.spawnExtra(sx < 0 ? 'crook' : 'thug', V().set(x, this.pos.y, z)); }
+      G.ui.toast('The getaway car is stopped. The crooks bail out!', 'good');
+    } else { this.g.removeFromParent(); G.ui.toast('The getaway car got away.', 'warn'); }
+  }
+  update(dt) {
+    if (!this.alive) { if (this.done === 'stopped' && Math.random() < dt * 3) G.fx.smoke(V().set(this.pos.x, this.pos.y + 1.4, this.pos.z), 1, '#1c1d22', 1.6, 1.6); return; }
+    const col = G.colliders, fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+    // turn down the side street with more room before running into anything (it looks further ahead than the slow truck)
+    if (col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, fx, 0, fz, 16) < 14) {
+      const l = col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, fz, 0, -fx, 150), r = col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, -fz, 0, fx, 150); this.yaw += l > r ? Math.PI / 2 : -Math.PI / 2;
+      if (G.audio && this.pos.distanceTo(G.player.pos) < 80) G.audio.burst(0.35, 0.05, 1400, 'bandpass');   // tyres
+    }
+    const sp = this.speed * (this.hp < this.max * 0.4 ? 0.55 : 1);   // badly damaged, it slows
+    this.pos.x += Math.sin(this.yaw) * sp * dt; this.pos.z += Math.cos(this.yaw) * sp * dt; this.pos.y = col.groundAt(this.pos.x, this.pos.z, this.pos.y + 1, 1, 1);
+    this.g.position.copy(this.pos); this.g.rotation.y = this.yaw;
+    if (this.hp < this.max * 0.4 && Math.random() < dt * 10) G.fx.smoke(V().set(this.pos.x + Math.sin(this.yaw) * 2, this.pos.y + 1, this.pos.z + Math.cos(this.yaw) * 2), 1, '#2a2c31', 1, 1.2);
+    if (this.pos.distanceTo(this.start) > 600) this.stop(false);
+  }
+  remove() { this.alive = false; G.combat.remove(this); this.g.removeFromParent(); }
+}
+function lootBags(at) {   // a robbery's haul: a few sacks dumped on the pavement
+  const g = new THREE.Group(), cloth = std('#6b5a3a', 0.9, 0); g.position.copy(at); G.scene.add(g);
+  for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), cloth); b.scale.set(1, 0.8, 1); b.position.set(Math.cos(k * 2.1) * 0.7, 0.26, Math.sin(k * 2.1) * 0.7); b.castShadow = true; g.add(b); }
+  const tag = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 0.12), neon('#7dff9c', 1.4)); tag.position.set(0, 0.55, 0); g.add(tag);
+  return g;
+}
+
 class Uplink {   // the orbital lift's uplink: the crew try to break it; heroes hold them off for three waves
   constructor(pos) {
     this.pos = pos.clone(); this.hp = this.max = 600;
@@ -604,6 +698,7 @@ export class Villains {
   }
   update(dt, t) {
     this.stepProjectiles(dt);
+    if (this.leaving) { this.leaving.update(dt); if (this.leaving.gone) this.leaving = null; }   // a saved resident walking off after the crime is over
     const H = G.heroes, P = G.player.pos;
     for (let i = this.foes.length - 1; i >= 0; i--) { const f = this.foes[i]; f.update(dt, t); if (f.gone) this.foes.splice(i, 1); }
     if (this.boss) { this.boss.update(dt, t); if (this.boss && this.boss.gone) { this.boss = null; this.calmUntil = G.elapsed + 5; } }
@@ -616,10 +711,16 @@ export class Villains {
     if (R) {
       R.t += dt; const d = Math.hypot(P.x - R.site.x, P.z - R.site.z);
       this.beacon.visible = true; this.beacon.position.set(R.site.x, R.site.y + 80, R.site.z); this.beacon.material.opacity = 0.25 + Math.sin(t * 4) * 0.1;
-      if (!R.spawned && d < 240) { R.spawned = true; if (R.owner !== 'vektor' && R.owner !== 'shade') say('crew', 'Kurozan\'s robots', ['Street secured. Resistance will be removed.', 'This district now belongs to Kurozan.', 'Citizens: stay still. Or do not. We prefer it when you run.'][Math.floor(Math.random() * 3)]); }
+      if (!R.spawned && d < 240) {
+        R.spawned = true;
+        if (R.owner === 'street') { const line = { mugging: ['Wallet. Now.', 'Nobody needs to get hurt. Hand it over.', 'Quiet, and this goes quick.'], robbery: ['Bags, bags, fill the bags!', 'Everybody down!', 'Thirty seconds, then we walk.'], getaway: ['Go, go, go!', 'Floor it!', 'Nobody follows us!'] }[R.type]; G.ui.say({ pos: R.site, h: 2.2 }, line[Math.floor(Math.random() * line.length)], 3); }
+        else if (R.owner !== 'vektor' && R.owner !== 'shade') say('crew', 'Kurozan\'s robots', ['Street secured. Resistance will be removed.', 'This district now belongs to Kurozan.', 'Citizens: stay still. Or do not. We prefer it when you run.'][Math.floor(Math.random() * 3)]);
+      }
       if (R.spawned && !R.built) this.buildRaidThings(R);
       if (R.spawned && R.queue.length) { const q = R.queue.shift(); const f = new Foe(this, q.kind, q.pos); this.foes.push(f); R.foes.push(f); }
       for (const c of R.cages || []) c.update(dt); if (R.truck) R.truck.update(dt, t); if (R.core) R.core.update(dt, t);
+      if (R.victim && !R.victim.gone) { R.victim.update(dt); if (!R.victim.saved && R.built && !R.queue.length && !R.foes.some((f) => f.alive || f.away > 0)) R.victim.save(); }
+      if (R.type === 'getaway' && R.truck && R.truck.done === 'escaped') { G.ui.flash('THEY GOT AWAY', 1.6); this.endRaid(true); return; }
       const left = R.foes.filter((f) => f.alive || f.away > 0).length + R.queue.length;
       // defend: the next wave once this one is down; lost if the uplink falls
       if (R.type === 'defend' && R.spawned) {
@@ -627,7 +728,7 @@ export class Villains {
         if (left === 0 && R.wave < 3) { R.wave++; this.queueWave(R, 4 + R.wave); G.ui.flash(`WAVE ${R.wave} OF 3`, 1.4); }
       }
       const cagesLeft = (R.cages || []).filter((c) => c.alive).length, truckLeft = R.truck && R.truck.alive;
-      const what = R.type === 'rescue' ? ` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
+      const what = R.type === 'getaway' ? (R.truck ? (R.truck.alive ? ` · stop the car (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 600 m)` : ' · the crooks bailed out') : ' · stop the car') : R.type === 'mugging' ? (R.victim && R.victim.saved ? ' · saved' : ' · save the resident') : R.type === 'rescue' ?` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
       if (!G.minigame) G.ui.setObjective({ title: VILLAINS[R.owner].crew, text: R.spawned ? `${left} left at ${R.name}${what}` : `${R.label} at ${R.name}`, sub: `${R.area} · ${Math.round(d)} m` });
       if (R.spawned && R.built && left === 0 && !cagesLeft && !truckLeft && (R.type !== 'defend' || R.wave >= 3)) this.completeRaid();
       R.far = d > 900 ? (R.far || 0) + dt : 0; if (R.far > 60) { G.ui.toast(`The crew at ${R.name} got away with it. Another raid will come.`, 'info'); this.endRaid(true); }
@@ -666,39 +767,61 @@ export class Villains {
   }
   // Each raid has a crew (Kurozan's robots, Vektor's drones, the Shadow Clan) and a kind:
   //   smash (stop them), rescue (break the cages), heist (stop the truck), defend (the orbital lift's uplink, three waves)
+  // ...and street crime (owner 'street', after your first raid about half of what happens): mugging (save the
+  // resident), robbery (stop the gang), getaway (stop the car, then the crooks who bail out of it)
   startRaid(force = {}) {
-    const st = this.st, owner = force.owner || (st.raids < 1 ? 'kurozan' : ['kurozan', 'vektor', 'shade'][Math.floor(Math.random() * 3)]);
-    const r = Math.random(), type = force.type || (st.raids < 1 ? 'smash' : r < 0.4 ? 'smash' : r < 0.65 ? 'rescue' : r < 0.85 ? 'heist' : 'defend');
+    // (the first thing to happen in a session is still a robot raid; crimes can come after it)
+    const st = this.st, crime = force.owner === 'street' || (!force.owner && !force.type && (st.raids >= 1 || this.anyRaid) && Math.random() < 0.5); this.anyRaid = true;
+    const owner = crime ? 'street' : force.owner || (st.raids < 1 ? 'kurozan' : ['kurozan', 'vektor', 'shade'][Math.floor(Math.random() * 3)]);
+    const r = Math.random(), type = force.type || (crime ? ['mugging', 'mugging', 'robbery', 'getaway'][Math.floor(r * 4)] : st.raids < 1 ? 'smash' : r < 0.4 ? 'smash' : r < 0.65 ? 'rescue' : r < 0.85 ? 'heist' : 'defend');
     let s = this.pickSite();
     if (type === 'defend' && G.orbital) { const x = G.orbital.tx + 22, z = G.orbital.tz + 22; s = { pos: V().set(x, G.colliders.groundAt(x, z, 20, 30, 0.5), z), name: 'the orbital lift', area: 'Aeroport' }; }
-    const n = type === 'defend' ? 5 : 5 + Math.floor(Math.random() * 3);
-    this.raid = { owner, type, site: s.pos, name: s.name, area: s.area, crowd: s.crowd || 0, n, queue: [], foes: [], spawned: false, t: 0, wave: 1, label: { smash: 'Smashing up the street', rescue: 'Holding people in cages', heist: 'Robbing an armoured truck', defend: 'Attacking the uplink' }[type] };
+    const n = crime ? { mugging: 2, robbery: 4, getaway: 2 }[type] : type === 'defend' ? 5 : 5 + Math.floor(Math.random() * 3);
+    this.raid = { owner, type, site: s.pos, name: s.name, area: s.area, crowd: s.crowd || 0, n, queue: [], foes: [], spawned: false, t: 0, wave: 1, label: { smash: 'Smashing up the street', rescue: 'Holding people in cages', heist: 'Robbing an armoured truck', defend: 'Attacking the uplink', mugging: 'A mugging', robbery: 'A robbery', getaway: 'A getaway car' }[type] };
     this.queueWave(this.raid, n);
     if (owner === 'vektor' || owner === 'shade') this.raid.queue.push({ kind: owner === 'vektor' ? 'vcore' : 'shade', pos: s.pos.clone().add(V().set(0, 0, -6)) });
-    const V2 = VILLAINS[owner], what = { smash: 'smashing up', rescue: 'holding people in energy cages at', heist: 'robbing an armoured truck at', defend: "attacking the orbital lift's uplink at" }[type];
+    const V2 = VILLAINS[owner], what = { smash: 'smashing up', rescue: 'holding people in energy cages at', heist: 'robbing an armoured truck at', defend: "attacking the orbital lift's uplink at", mugging: 'mugging someone at', robbery: 'robbing a shop at', getaway: 'about to flee in a getaway car from' }[type];
     this.beacon.material.color.set(V2.color).multiplyScalar(0.6);
-    G.ui.toast(`${V2.crew} ${type === 'smash' ? 'are smashing up' : 'are ' + what} ${s.name} (${s.area}). Follow the beam.`, 'warn'); G.ui.flash('RAID', 1.4);
+    G.ui.toast(`${V2.crew} ${type === 'smash' ? 'are smashing up' : 'are ' + what} ${s.name} (${s.area}). Follow the beam.`, 'warn'); G.ui.flash(crime ? 'CRIME' : 'RAID', 1.4);
     if (G.audio) { G.audio.tone(520, 0.3, 0.06, 'square'); setTimeout(() => G.audio && G.audio.tone(390, 0.4, 0.06, 'square'), 320); }
     if (G.metro && G.metro.setRoute) try { G.metro.setRoute(s.pos.x, s.pos.z, G.player.pos); } catch { /* no route */ }
   }
   queueWave(R, n) {
-    const kinds = { kurozan: ['brute', 'gunner', 'gunner', 'brute', 'drone', 'gunner', 'brute', 'drone', 'gunner'], vektor: ['hdrone', 'hdrone', 'gunner', 'hdrone', 'hdrone', 'brute', 'hdrone', 'hdrone', 'gunner'], shade: ['ninja', 'ninja', 'ninja', 'gunner', 'ninja', 'ninja', 'brute', 'ninja', 'ninja'] }[R.owner];
-    const c = R.site, r0 = R.type === 'defend' ? 22 : 4;
-    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + R.wave, r = r0 + Math.random() * 7, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; R.queue.push({ kind: kinds[i % kinds.length], pos: V().set(x, G.colliders.groundAt(x, z, c.y + 3, 3, 0.3), z) }); }
+    if (R.type === 'getaway') return;   // the getaway's crooks are in the car until it is stopped
+    const kinds = { kurozan: ['brute', 'gunner', 'gunner', 'brute', 'drone', 'gunner', 'brute', 'drone', 'gunner'], vektor: ['hdrone', 'hdrone', 'gunner', 'hdrone', 'hdrone', 'brute', 'hdrone', 'hdrone', 'gunner'], shade: ['ninja', 'ninja', 'ninja', 'gunner', 'ninja', 'ninja', 'brute', 'ninja', 'ninja'], street: R.type === 'robbery' ? ['thug', 'crook', 'thug', 'crook'] : ['thug', 'thug'] }[R.owner];
+    const c = R.site, r0 = R.type === 'defend' ? 22 : R.owner === 'street' ? 2.2 : 4, spread = R.owner === 'street' ? 2 : 7;   // a mugging's thugs stand right by their victim
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + R.wave, r = r0 + Math.random() * spread, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; R.queue.push({ kind: kinds[i % kinds.length], pos: V().set(x, G.colliders.groundAt(x, z, c.y + 3, 3, 0.3), z) }); }
   }
   buildRaidThings(R) {
     R.built = true; const c = R.site;
     if (R.type === 'rescue') R.cages = [0, 1, 2].map((k) => { const a = k * 2.1 + 0.5, x = c.x + Math.cos(a) * 6, z = c.z + Math.sin(a) * 6; return new Cage(this, V().set(x, G.colliders.groundAt(x, z, c.y + 2, 3, 0.3), z)); });
     if (R.type === 'heist') R.truck = new Truck(this, c.clone());
     if (R.type === 'defend') R.core = new Uplink(c.clone());
+    if (R.type === 'mugging') R.victim = new Victim(this, c.clone());
+    if (R.type === 'robbery') R.props = [lootBags(c.clone())];
+    if (R.type === 'getaway') R.truck = new Getaway(this, c.clone());
   }
   completeRaid() {
+    if (this.raid.owner === 'street') return this.completeCrime();
     const R = this.raid, bonus = (R.freed || 0) * 100 + (R.truck && R.truck.done === 'stopped' ? 300 : 0) + (R.type === 'defend' ? 400 : 0), pay = 250 + R.n * 50 + bonus; this.st.raids++; G.state.done.heroRaid = true;
     G.economy.earn(pay, `stopping the raid at ${R.name}`); if (G.heroes) { G.heroes.addXp(100); G.heroes.raidDone(R); } G.ui.flash('RAID STOPPED', 2); sting('win');
     this.cheer(R);
     this.endRaid(false); this.nextRaid = (80 + Math.random() * 60) * G.heroes.diff.raid;
     if (R.type === 'rescue' && R.freed) G.ui.toast(`${R.freed} resident${R.freed === 1 ? '' : 's'} freed.`, 'good');
     if (this.st.raids === 2) G.ui.toast('Kurozan has noticed you. He is waiting at Skyhaven Stadium: face him from the Hero Hall or the Heroes app.', 'good');
+    if (G.metro) G.metro.route = null;
+  }
+  // a street crime stopped: smaller pay than a raid, counted on its own (it does not bring Kurozan any closer),
+  // and the next thing happens sooner
+  completeCrime() {
+    const R = this.raid, st = this.st, bonus = (R.freed || 0) * 80 + (R.truck && R.truck.done === 'stopped' ? 150 : 0), pay = 100 + R.n * 30 + bonus;
+    st.crimes = (st.crimes || 0) + 1; G.state.done.heroCrime = true;
+    G.economy.earn(pay, `stopping ${{ mugging: 'a mugging', robbery: 'a robbery', getaway: 'a getaway' }[R.type]} ${R.name.startsWith('near ') ? R.name : 'at ' + R.name}`);
+    if (G.heroes) { G.heroes.addXp(50); G.heroes.raidDone(R); }
+    G.ui.flash('CRIME STOPPED', 1.8); sting('win');
+    this.cheer(R);
+    this.endRaid(false); this.nextRaid = (40 + Math.random() * 30) * G.heroes.diff.raid;
+    if (st.crimes === 1) G.ui.toast('Street crime stopped. More will turn up while you are a hero: muggings, robberies, getaway cars.', 'info');
     if (G.metro) G.metro.route = null;
   }
   // the street you saved: everyone close by turns to you, waves and thanks you; your standing rises with
@@ -721,6 +844,9 @@ export class Villains {
     if (this.raid.spawned) this.calmUntil = G.elapsed + 5;
     for (const f of this.raid.foes) if (!f.gone) { f.remove(); f.gone = true; }
     for (const c of this.raid.cages || []) c.remove(); if (this.raid.truck) this.raid.truck.remove(); if (this.raid.core) this.raid.core.remove();
+    if (this.raid.victim && !this.raid.victim.gone && !this.raid.victim.saved) this.raid.victim.remove();   // a saved resident walks off on their own
+    else if (this.raid.victim && !this.raid.victim.gone) this.leaving = this.raid.victim;
+    for (const p of this.raid.props || []) p.removeFromParent();
     this.foes = this.foes.filter((f) => !f.gone); this.raid = null; this.beacon.visible = false; G.ui.setObjective(null); if (G.metro) G.metro.route = null;
     if (abandon) this.nextRaid = 60 * G.heroes.diff.raid;
   }

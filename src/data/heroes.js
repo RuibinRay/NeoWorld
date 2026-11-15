@@ -144,11 +144,24 @@ export const VILLAINS = {
   vektor: { name: 'Vektor, the Machine Overlord', short: 'Vektor', crew: "Vektor's drones", color: '#ff2a4f', hp: 520 },
   shade: { name: 'Shade, of the Shadow Clan', short: 'Shade', crew: 'The Shadow Clan', color: '#b26bff', hp: 420,
     look: { kind: 'human', skin: '#c68d6b', hair: '#121216', hairStyle: 1, top: '#1c1624', bottom: '#14111a', accent: '#b26bff', outfit: 'coat', sleeves: 'long', legs: 'trousers', hat: 'hood', height: 1.78, build: 0.9, shape: 0.6, boots: true } },
+  // ordinary crime: muggings, shop robberies, getaway cars (systems/villains.js, the 'street' raids)
+  street: { name: 'Street crooks', short: 'Crooks', crew: 'Street crooks', color: '#ffb347' },
 };
+// street crooks' clothes: each one picks a look at random
+const THUG = (o) => ({ kind: 'human', hair: '#16171c', bottom: '#22252c', accent: '#ffb347', sleeves: 'long', legs: 'trousers', shoe: '#14151a', shape: 0.2, ...o });
+const THUG_LOOKS = [
+  THUG({ skin: '#c68d6b', hairStyle: 4, top: '#3a3f4a', outfit: 'jacket', shirt: '#1c1f27', hat: 'hood', height: 1.82, build: 1.1 }),
+  THUG({ skin: '#f1c9a5', hair: '#5a3a22', hairStyle: 9, top: '#5a2a2a', outfit: 'plain', height: 1.76, build: 1.05 }),
+  THUG({ skin: '#7b4a2f', hairStyle: 1, top: '#2f4a3a', vest: '#1c1f27', outfit: 'vest', height: 1.85, build: 1.2, beard: true }),
+  THUG({ skin: '#e0ac7e', hair: '#2a1c14', hairStyle: 8, top: '#2b3b5a', outfit: 'jacket', shirt: '#c9ced8', hat: 'hood', height: 1.74, build: 0.95, glasses: true }),
+];
 export const CREW = {
   brute: { name: 'Stormbreaker brute', hp: 130, look: { kind: 'android', shell: '#2b2e36', top: '#3a2222', bottom: '#1c1e24', accent: '#ff3b30', headType: 1, height: 2.25, build: 1.5, girth: 1.3 } },
   gunner: { name: 'Stormbreaker gunner', hp: 65, look: { kind: 'android', shell: '#3b3f4a', top: '#4a3a24', bottom: '#22252c', accent: '#ff8a00', headType: 3, height: 1.85, build: 1.0 } },
   drone: { name: 'Storm drone', hp: 40 },
   hdrone: { name: 'Hijacked drone', hp: 35 },
   ninja: { name: 'Shadow ninja', hp: 60, look: { kind: 'human', skin: '#a56b46', hair: '#121216', hairStyle: 4, top: '#1a1820', bottom: '#14121a', accent: '#b26bff', outfit: 'plain', sleeves: 'long', legs: 'trousers', hat: 'hood', height: 1.75, build: 0.95, boots: true } },
+  // street crooks: a thug brawls (the brute's ways without the ground slam), a crook keeps back and shoots a pistol (the gunner's ways)
+  thug: { name: 'Street thug', hp: 45, ai: 'brute', human: true, looks: THUG_LOOKS },
+  crook: { name: 'Armed crook', hp: 38, ai: 'gunner', human: true, looks: THUG_LOOKS },
 };

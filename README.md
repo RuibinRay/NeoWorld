@@ -652,6 +652,23 @@ on it (the crosshair ray used to pass under the ground), which helps every power
 powers, **R** ultimate when the meter is full (landing hits fills it). The crosshair aims. On a
 gamepad in Hero Mode: RB light, LB heavy, the d-pad up/right/down for 1/2/3 and left for R.
 
+**Street crime** (`systems/villains.js`, the 'street' raids): after the first robot raid of a session,
+about half of what happens is ordinary crime, marked like a raid (an amber beam, a route, the objective
+panel) and flashed as CRIME. A **mugging**: two thugs crowd a resident, who stands with hands up;
+beat the thugs and the resident thanks you and walks off. A **robbery**: four crooks with loot bags
+at their feet, two of them armed. A **getaway car**: it tears off down the streets at about 15 m/s,
+turning away from walls (smoking and slowing when badly hurt); stop it within 600 m (five of Strand's
+web strikes do it) and a crook and a thug bail out to fight; if it gets away, the crime is lost. The
+crooks are people, not robots: thugs brawl (a brute's ways without the ground slam, weaker punches),
+armed crooks keep their distance and fire small yellow pistol shots; until a hero comes they menace
+their victim and send residents running rather than smashing walls; beaten, they are knocked out
+(no sparks or explosion), and Strand's lines wrap them like anyone else. Crimes pay less than raids
+(◈100 + ◈30 a crook, ◈80 for a resident saved, ◈150 for a stopped car, plus 50 experience), are
+counted on their own (they do not bring Kurozan closer), and the next incident comes sooner
+(40-70 s). Tested by script: a mugging (resident saved, ◈240), a robbery (8 shots fired at the hero,
+◈220), a getaway stopped (◈310) and one that escaped after 40 s; the first incident of a fresh session
+was Kurozan's raid, and 208 of the next 400 were crimes.
+
 **Kurozan's crew:** every couple of minutes while you are a hero, his war robots (Stormbreaker
 brutes, gunners and storm drones) raid a street 100–400 m away: a red beam marks it, the map shows
 it and a route is set. Until you come they smash shopfronts and scare people off the street; then
