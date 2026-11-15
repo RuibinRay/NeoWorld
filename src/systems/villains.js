@@ -527,7 +527,8 @@ export class Villains {
     beam.visible = false; beam.frustumCulled = false; G.scene.add(beam); this.beacon = beam;
   }
   get st() { return G.heroes.st; }
-  busy() { return !!((this.raid && this.raid.spawned) || this.boss); }
+  // a fight is on (or only just ended: the last blow of a raid or boss fight is not property damage)
+  busy() { return !!((this.raid && this.raid.spawned) || this.boss || G.elapsed < (this.calmUntil || 0)); }
   busyNear(p) { if (this.boss) return p.distanceTo(this.bossArena) < 90; return !!(this.raid && this.raid.spawned && p.distanceTo(this.raid.site) < 70); }
   heroOn() { this.nextRaid = Math.min(this.nextRaid, 30); }
   heroOff() { this.endTraining(); this.endRaid(true); this.endBoss(true); for (const pr of this.proj) pr.orb.life = 0; this.proj.length = 0; }
@@ -584,7 +585,7 @@ export class Villains {
     this.stepProjectiles(dt);
     const H = G.heroes, P = G.player.pos;
     for (let i = this.foes.length - 1; i >= 0; i--) { const f = this.foes[i]; f.update(dt, t); if (f.gone) this.foes.splice(i, 1); }
-    if (this.boss) { this.boss.update(dt, t); if (this.boss && this.boss.gone) this.boss = null; }
+    if (this.boss) { this.boss.update(dt, t); if (this.boss && this.boss.gone) { this.boss = null; this.calmUntil = G.elapsed + 5; } }
     if (!this.boss && this.stormFrom) { G.env.setWeather('rain'); this.stormFrom = null; }
     if (H && H.on) H.bossBar(this.boss && this.boss.alive ? { title: this.boss.title, hp: this.boss.hp, max: this.boss.max, phaseText: this.fightText, face: this.boss.face || (this.boss.phase === 'dragon' ? 'villain-dragon.jpg' : 'villain-kurozan.jpg') } : null);
     if (!H || !H.on) return;
@@ -605,7 +606,7 @@ export class Villains {
         if (left === 0 && R.wave < 3) { R.wave++; this.queueWave(R, 4 + R.wave); G.ui.flash(`WAVE ${R.wave} OF 3`, 1.4); }
       }
       const cagesLeft = (R.cages || []).filter((c) => c.alive).length, truckLeft = R.truck && R.truck.alive;
-      const what = R.type === 'rescue' ? ` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : '';
+      const what = R.type === 'rescue' ? ` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
       if (!G.minigame) G.ui.setObjective({ title: VILLAINS[R.owner].crew, text: R.spawned ? `${left} left at ${R.name}${what}` : `${R.label} at ${R.name}`, sub: `${R.area} · ${Math.round(d)} m` });
       if (R.spawned && R.built && left === 0 && !cagesLeft && !truckLeft && (R.type !== 'defend' || R.wave >= 3)) this.completeRaid();
       R.far = d > 900 ? (R.far || 0) + dt : 0; if (R.far > 60) { G.ui.toast(`The crew at ${R.name} got away with it. Another raid will come.`, 'info'); this.endRaid(true); }
@@ -656,6 +657,7 @@ export class Villains {
   }
   endRaid(abandon) {
     if (!this.raid) return;
+    if (this.raid.spawned) this.calmUntil = G.elapsed + 5;
     for (const f of this.raid.foes) if (!f.gone) { f.remove(); f.gone = true; }
     for (const c of this.raid.cages || []) c.remove(); if (this.raid.truck) this.raid.truck.remove(); if (this.raid.core) this.raid.core.remove();
     this.foes = this.foes.filter((f) => !f.gone); this.raid = null; this.beacon.visible = false; G.ui.setObjective(null); if (G.metro) G.metro.route = null;
@@ -705,7 +707,7 @@ export class Villains {
     this.nextRaid = 150;
   }
   endBoss(quiet) {
-    if (!this.boss) return; this.boss.remove(); this.boss = null; G.heroes.bossBar(null); void quiet;
+    if (!this.boss) return; this.boss.remove(); this.boss = null; G.heroes.bossBar(null); void quiet; this.calmUntil = G.elapsed + 5;
     if (this.stormFrom) { G.env.setWeather('rain'); this.stormFrom = null; }   // the storm breaks up into rain
     for (const f of this.foes) if (!(this.raid && this.raid.foes.includes(f)) && !f.gone) { f.remove(); f.gone = true; } this.foes = this.foes.filter((f) => !f.gone);
   }
