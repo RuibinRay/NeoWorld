@@ -77,9 +77,17 @@ export class Combat {
   // are only ever knocked over. The street reacts: fighters come at the hero, everyone else runs.
   knockResident(npc, dir, o) {
     const p = (o.knock || 4) * 0.8, wasDead = !!npc.dead;
-    const killed = !o.byVillain && !wasDead && npc.harm((o.dmg || 4) * (G.heroes && G.heroes.on ? G.heroes.dmgMul : 1));
+    // caught in the middle of a fight with villains (a raid, a boss): collateral, not an attack
+    const fight = !o.byVillain && !!(G.villains && G.villains.busy());
+    const killed = !o.byVillain && !fight && !wasDead && npc.harm((o.dmg || 4) * (G.heroes && G.heroes.on ? G.heroes.dmgMul : 1));
     npc.knock(dir.x * p, dir.z * p, Math.max(2.5, (o.up || 0) + p * 0.35), o.kind === 'web' ? 2.5 : 0);
     if (o.byVillain || wasDead) return;
+    if (fight) {   // knocked over, never badly hurt, no patrol and no stars: only a little standing
+      const m = npc.mem; m.rep = clamp(m.rep - 3, -100, 100); G.state.standing = clamp(G.state.standing - 0.5, -100, 100); this.collateral = (this.collateral || 0) + 1;
+      if (npc.isNear && Math.random() < 0.5) G.ui.say(npc, npc.child ? 'Hey!' : ['Watch it!', 'Whoa!', 'Mind the people!'][Math.floor(Math.random() * 3)], 2);
+      if (this.collateral === 1) G.ui.toast('Careful: bystanders. In a fight with villains they only get knocked over, but they remember it.', 'info');
+      return;
+    }
     npc.provoked = G.elapsed;
     this.civHits++;
     const m = npc.mem; m.rep = clamp(m.rep - (killed ? 40 : 12), -100, 100); G.state.standing = clamp(G.state.standing - (killed ? 8 : 2), -100, 100);
