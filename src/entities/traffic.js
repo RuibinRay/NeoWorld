@@ -48,11 +48,14 @@ export class Traffic {
       const v = { path, s, v: vmax * 0.6, vmax, kind, mesh, slot, w, l, p: new THREE.Vector3(), yaw: 0, blocked: 0, ghost: 0, dwell: 0, lastStop: -1, look: kind === 'bus' ? 13 : 9 };
       v.yaw = path.sample(s, v.p); this.ground.push(v); return v;
     };
-    loops.forEach((p, i) => { if (i !== 4) add(p, this.rng.range(0, p.total), this.rng.chance(0.3) ? 'van' : 'pod', this.rng.range(8, 11)); });
+    // Meridian's streets: two cars round each block, nine on the outer avenue, five on each cross street,
+    // spread evenly along each loop so they start apart and do not queue up behind each other
+    loops.forEach((p, i) => { if (i !== 4) { const s0 = this.rng.range(0, p.total); for (let k = 0; k < 2; k++) add(p, (s0 + k * p.total / 2) % p.total, this.rng.chance(0.3) ? 'van' : 'pod', this.rng.range(8, 11)); } });
     const bus = add(loops[4], 30, 'bus', 8.5); bus.stops = [loops[4].total * 0.11, loops[4].total * 0.61]; this.bus = bus;
     add(loops[4], 250, 'pod', 9);
-    for (let i = 0; i < 3; i++) add(perimeter, i * 440 + 50, i === 1 ? 'van' : 'pod', 12);
-    add(row, 120, 'pod', 11); add(row, 560, 'van', 10); add(colL, 300, 'pod', 11); add(colL, 700, 'pod', 10);
+    for (let i = 0; i < 9; i++) add(perimeter, 50 + i * perimeter.total / 9, i % 3 === 1 ? 'van' : 'pod', this.rng.range(11, 13));
+    for (let i = 0; i < 5; i++) add(row, 120 + i * row.total / 5, i === 2 ? 'van' : 'pod', this.rng.range(10, 11.5));
+    for (let i = 0; i < 5; i++) add(colL, 300 + i * colL.total / 5, i === 3 ? 'van' : 'pod', this.rng.range(10, 11.5));
   }
 
   buildAir() {

@@ -424,10 +424,24 @@ export function buildCity(scene, col) {
 function buildPark(c) {
   const { THREE, group, col, city, bx, solid, cyl, flat, holo } = c;
   { // lawn (tiled grass) with paved paths laid on top
-    const cv = makeCanvas(256, 256), g = cv.getContext('2d'), r = new RNG(9);
-    g.fillStyle = '#245240'; g.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 2600; i++) { const v = r.next(); g.fillStyle = v < 0.5 ? 'rgba(70,150,95,0.5)' : v < 0.85 ? 'rgba(20,62,46,0.55)' : 'rgba(150,200,120,0.35)'; g.fillRect(r.next() * 256, r.next() * 256, 2, 2 + r.next() * 4); }
-    const tex = canvasTex(cv); tex.repeat.set(23, 23);
+    // Soft, low-contrast grass: a few broad patches of lighter and darker green, then thin blades in close
+    // shades, lightly blurred. (Bright and dark specks on a small tile used to read as speckled noise.)
+    // The tile wraps, so patches and blades drawn over an edge are drawn again on the far side.
+    const S = 512, cv = makeCanvas(S, S), g = cv.getContext('2d'), r = new RNG(9);
+    const wrap = (fn) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) fn(ox, oy); };
+    g.fillStyle = '#2a5a44'; g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 26; i++) {   // broad patches: lighter and darker ground
+      const x = r.next() * S, y = r.next() * S, rad = 40 + r.next() * 110, light = r.next() < 0.5;
+      wrap((ox, oy) => { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad); gr.addColorStop(0, light ? 'rgba(78,128,84,0.30)' : 'rgba(24,60,44,0.30)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2); });
+    }
+    g.filter = 'blur(0.6px)'; g.lineCap = 'round';
+    for (let i = 0; i < 9000; i++) {   // blades, short and thin, in shades close to the ground colour
+      const x = r.next() * S, y = r.next() * S, h = 3 + r.next() * 6, lean = (r.next() - 0.5) * 3, v = r.next();
+      g.strokeStyle = v < 0.45 ? 'rgba(62,118,78,0.45)' : v < 0.85 ? 'rgba(30,72,52,0.45)' : 'rgba(96,146,92,0.35)'; g.lineWidth = 1 + r.next() * 0.6;
+      wrap((ox, oy) => { if (x + ox < -8 || x + ox > S + 8 || y + oy < -8 || y + oy > S + 8) return; g.beginPath(); g.moveTo(x + ox, y + oy); g.lineTo(x + ox + lean, y + oy - h); g.stroke(); });
+    }
+    g.filter = 'none';
+    const tex = canvasTex(cv); tex.repeat.set(12, 12); tex.anisotropy = 8;
     const lawn = new THREE.Mesh(new THREE.PlaneGeometry(92, 92), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
     lawn.rotation.x = -Math.PI / 2; lawn.position.y = FY + 0.012; lawn.receiveShadow = true; group.add(lawn);
     const pave = std('#5f6877', 0.8, 0.1), geos = [];

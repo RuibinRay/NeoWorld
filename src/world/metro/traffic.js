@@ -8,7 +8,7 @@ import { Fleet, PAINTS, TAXI, BOXES } from '../../entities/fleet.js';
 import { P, NB, blockOf } from './landuse.js';
 import { eSeg, sSeg, corner, signalState } from './streets.js';
 
-const LANE = 4.2, N = 38, TYPES = ['car', 'car', 'taxi', 'car', 'van', 'car', 'car', 'van', 'taxi', 'car', 'truck', 'car', 'van'];
+const LANE = 4.2, N = 72, TYPES = ['car', 'car', 'taxi', 'car', 'van', 'car', 'car', 'van', 'taxi', 'car', 'truck', 'car', 'van'];
 // how far two vehicles' footprints (rotated rectangles) overlap; 0 if they do not touch
 export function overlap(a, b) {
   const af = [Math.sin(a.yaw), Math.cos(a.yaw)], bf = [Math.sin(b.yaw), Math.cos(b.yaw)], dx = b.x - a.x, dz = b.z - a.z;
@@ -29,11 +29,14 @@ export class AvenueTraffic {
       this.pods.push({ on: false, slot, l: slot.l, w: slot.w, axis: 'z', line: 0, s: 0, dir: 1, v: 0, vmax: this.rng.range(10, 15) * (type === 'truck' ? 0.8 : 1), x: 0, z: 0, yaw: 0, turn: null, wait: 0, honk: 0 });
     }
   }
-  // put a pod on a random street segment 140 to 460 m from the focus
+  // put a pod on a random street segment 70 to 420 m from the focus. Closer than 200 m only where the
+  // camera is not looking (more than about 70 degrees off its view), so the streets round you are busy
+  // but no vehicle ever pops into sight
   place(o, focus) {
-    const r = this.rng;
-    for (let tries = 0; tries < 12; tries++) {
-      const a = r.range(0, Math.PI * 2), d = r.range(140, 460), i = blockOf(focus.x + Math.cos(a) * d), j = blockOf(focus.z + Math.sin(a) * d);
+    const r = this.rng, e = G.camera.matrixWorld.elements, fx = -e[8], fz = -e[10], fl = Math.hypot(fx, fz) || 1;
+    for (let tries = 0; tries < 20; tries++) {
+      const u = r.next(), a = r.range(0, Math.PI * 2), d = 70 + 350 * u * u;   // weighted toward the near streets
+      const i = blockOf(focus.x + Math.cos(a) * d), j = blockOf(focus.z + Math.sin(a) * d);
       if (Math.abs(i) > NB || j < -NB || j > 9) continue;
       if (r.chance(0.5) && eSeg(i, j) === 'street') { o.axis = 'z'; o.line = i * P + 60; o.s = j * P + r.range(-40, 40); }
       else if (sSeg(i, j) === 'street') { o.axis = 'x'; o.line = j * P + 60; o.s = i * P + r.range(-40, 40); }
@@ -43,7 +46,10 @@ export class AvenueTraffic {
       if (this.pods.some((q) => q !== o && q.on && q.axis === o.axis && q.line === o.line && q.dir === o.dir && Math.abs(q.s - o.s) < 14)) continue;
       const hz = G.metro.xing.lines.get(o.axis + ':' + o.line);
       if (hz && hz.some((h) => { const ws = [h.e[1], h.e[-1]].filter((w) => w !== undefined); return o.s > Math.min(...ws) - 12 && o.s < Math.max(...ws) + 12; })) continue;
-      o.v = o.vmax * 0.7; o.turn = null; o.on = true; this.locate(o); o.x = o.tx; o.z = o.tz; o.yaw = o.tyaw; return;
+      this.locate(o);
+      const dx = o.tx - focus.x, dz = o.tz - focus.z, dd = Math.hypot(dx, dz);
+      if (dd < 60 || (dd < 200 && (dx * fx + dz * fz) / (dd * fl) > 0.34)) continue;   // too close, or close and in view
+      o.v = o.vmax * 0.7; o.turn = null; o.on = true; o.x = o.tx; o.z = o.tz; o.yaw = o.tyaw; return;
     }
     o.on = false;
   }
