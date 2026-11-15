@@ -1,8 +1,9 @@
 // Passers-by in the new parts of the city. Unlike the 260 residents they have no homes, jobs or
 // schedules: they walk the pavements round a block, wait for the lights and cross, jog the park
 // loop, stroll the boardwalk, sit on benches, loungers and at the bars and cafes, some with a
-// child or a dog alongside. They exist only around the player: far ones are moved to a pavement
-// nearer by. Drawn as crowd figures, with a pool of detailed rigs (one per look) for the few that
+// child or a dog alongside. Meridian has its own set walking its pavement rings and crosswalks. They
+// exist only around the player, thickest close by: far ones are moved to a pavement nearer by, out
+// of the camera's view. When villains fight close by, they turn and run. Drawn as crowd figures, with a pool of detailed rigs (one per look) for the few that
 // are close enough to see properly. Events (systems/happenings.js) add their own crowds through put().
 import * as THREE from 'three';
 import { G } from '../core/game.js';
@@ -10,8 +11,10 @@ import { RNG, dampAngle } from '../core/util.js';
 import { makeHumanoid, animateRig, varyLook, makeDog, animateDog, SKINS, HAIRS, CLOTHES, ACCENTS } from './rigs.js';
 import { NB, blockOf } from '../world/metro/landuse.js';
 import { eSeg, sSeg, corner, signalState } from '../world/metro/streets.js';
+import { terrainY } from '../world/city.js';
 
-const N = 64, ADULTS = 18, KIDS = 3, ELDERS = 3, INS = 2.9, E = 50 - INS, WEIGHT = { core: 1, mid: 0.8, resort: 0.9, edge: 0.4, suburb: 0.45, port: 0.25 };
+// N walk Midtown's blocks, MN walk Meridian's own pavements (its nav graph); they are kept within OUT (MOUT in Meridian) m of you
+const N = 200, MN = 80, OUT = 200, MOUT = 140, ADULTS = 18, KIDS = 3, ELDERS = 3, INS = 2.9, E = 50 - INS, WEIGHT = { core: 1, mid: 0.8, resort: 0.9, edge: 0.4, suburb: 0.45, port: 0.25 };
 const HELLO = ['Morning.', 'Lovely day for it.', 'Sorry, in a rush.', 'Have you tried the bao on K Street?', 'The M1 is late again.', 'Mind the pods, they do not always stop.', 'Is it going to rain? My lens says no.', 'You look like you know where you are going.', 'Hello!', 'The wheel is worth the eight credits.', 'Nice out by the water today.', 'Evening.', 'She is friendly, you can say hello.', 'We are off to the park.'];
 // corner k of a block's walking rectangle: 0 NW, 1 NE, 2 SE, 3 SW
 const CX = [-1, 1, 1, -1], CZ = [-1, -1, 1, 1];
@@ -41,6 +44,17 @@ export class Ambient {
       if (k % 9 === 5) w.dog = { pos: new THREE.Vector3(), yaw: 0, col: DOGS[k % DOGS.length], rig: null };                                         // a dog on a lead
       this.w.push(w);
     }
+    // Meridian's passers-by walk its pavement rings and crosswalks from node to node
+    this.mnodes = G.nav.nodes.filter((q) => q.street && !q.zone && Math.abs(q.x) < 180 && Math.abs(q.z) < 180);
+    this.m = [];
+    for (let k = 0; k < MN; k++) {
+      const w = { on: false, pos: new THREE.Vector3(), yaw: 0, phase: r.range(0, 6), look: this.adult(k * 3 + 1), speed: r.range(1.15, 1.6), lane: r.range(-1.3, 1.3), at: null, to: null, tx: 0, tz: 0, stop: 0, rig: false };
+      if (w.look.look.style && w.look.look.style.posture) w.speed *= 0.75;
+      if (k % 8 === 2) { w.kid = { pos: new THREE.Vector3(), yaw: 0, phase: 0, look: this.kid(k + 1), rig: false }; w.speed = Math.min(w.speed, 1.2); }
+      if (k % 10 === 6) w.dog = { pos: new THREE.Vector3(), yaw: 0, col: DOGS[k % DOGS.length], rig: null };
+      this.m.push(w);
+    }
+    this.last = new THREE.Vector3(1e9, 0, 0); this.fresh = true; this.threats = [];
     // fixed routes: joggers on the park loop, strollers on the boardwalk and the pier
     const loop = [[485, 485], [955, 485], [955, 955], [485, 955]], walk = [[330, 1154.5], [1290, 1154.5]], pier = [[810, 1172], [810, 1376]];
     this.route = [];
@@ -68,16 +82,72 @@ export class Ambient {
     }
     return out;
   }
+  // Somewhere a new passer-by may appear: not on top of you, inside the kept range, and (once the
+  // street is filled) only where the camera is not looking unless it is far enough off not to be noticed.
+  ok(p, focus, out = OUT) {
+    const dx = p.x - focus.x, dz = p.z - focus.z, d = Math.hypot(dx, dz);
+    if (d < 12 || d > out - 15) return false;
+    if (this.fresh || d > 110) return true;
+    const e = G.camera.matrixWorld.elements, fx = -e[8], fz = -e[10], fl = Math.hypot(fx, fz) || 1;
+    return (dx * fx + dz * fz) / (d * fl) < 0.3;
+  }
+  // far off, or behind the camera: someone can quietly leave without being seen to vanish
+  unseen(w, d2) {
+    if (d2 > 90 * 90) return true;
+    const c = this.cul; if (!c) return false;
+    const dx = w.pos.x - c[0], dz = w.pos.z - c[1]; return dx * c[2] + dz * c[3] < -0.1 * Math.hypot(dx, dz);
+  }
+  // a Meridian passer-by: on a pavement node near you, heading for one of its neighbours
+  mplace(w, focus) {
+    const r = this.rng;
+    for (let t = 0; t < 8; t++) {
+      let q = null; for (let c = 0; c < 3; c++) { const o = r.pick(this.mnodes); if (this.ok(o, focus, MOUT) && (!q || (o.x - focus.x) ** 2 + (o.z - focus.z) ** 2 < (q.x - focus.x) ** 2 + (q.z - focus.z) ** 2)) q = o; }   // the nearest of three: busier close by
+      if (!q) continue;
+      w.at = q; w.to = this.mnext(w, null); if (!w.to) continue;
+      w.pos.set(q.x, terrainY(q.x, q.z), q.z); this.aim(w); w.yaw = Math.atan2(w.tx - w.pos.x, w.tz - w.pos.z); w.on = true; w.flee = 0; w.stop = 0;
+      return;
+    }
+    w.on = false;
+  }
+  // the next node along: mostly straight on, sometimes a turn or across the road, never straight back unless it is a dead end
+  mnext(w, from) {
+    const links = w.at.links.filter((q) => q.street && !q.zone && q !== from);
+    if (!links.length) return from;
+    if (from && links.length > 1 && this.rng.chance(0.6)) {
+      const ax = w.at.x - from.x, az = w.at.z - from.z; let best = null, bd = 0.7;
+      for (const q of links) { const bx = q.x - w.at.x, bz = q.z - w.at.z, c = (ax * bx + az * bz) / ((Math.hypot(ax, az) * Math.hypot(bx, bz)) || 1); if (c > bd) { bd = c; best = q; } }
+      if (best) return best;
+    }
+    return this.rng.pick(links);
+  }
+  // where to walk for the current leg: the next node, shifted sideways to the walker's own line on the pavement
+  aim(w) {
+    const a = w.at, b = w.to, dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1;
+    w.tx = b.x + (-dz / l) * w.lane; w.tz = b.z + (dx / l) * w.lane;
+  }
+  // a villain fight close by: walkers in range turn and run the other way along their pavement
+  scare(w, run) {
+    if (w.flee > 0 || !this.threats.length) return false;
+    for (const f of this.threats) {
+      const dx = w.pos.x - f.x, dz = w.pos.z - f.z; if (dx * dx + dz * dz > 24 * 24) continue;
+      w.flee = 5 + this.rng.next() * 3; w.stop = 0; w.wait = 0; w.door = null;
+      if ((w.tx - w.pos.x) * -dx + (w.tz - w.pos.z) * -dz > 0) run(w);   // heading towards the trouble: turn back
+      return true;
+    }
+    return false;
+  }
   place(w, focus) {
     const r = this.rng;
     for (let t = 0; t < 10; t++) {
-      const a = r.range(0, 6.283), d = r.range(55, 215), i = blockOf(focus.x + Math.cos(a) * d), j = blockOf(focus.z + Math.sin(a) * d), b = this.slab(i, j);
+      const a = r.range(0, 6.283), u = r.next(), d = 15 + 160 * u * u, i = blockOf(focus.x + Math.cos(a) * d), j = blockOf(focus.z + Math.sin(a) * d), b = this.slab(i, j);
       if (!b || Math.abs(i) > NB || !r.chance(WEIGHT[b.use] || 0)) continue;
       w.i = i; w.j = j; w.dir = r.chance(0.5) ? 1 : -1; w.k = r.int(0, 3); const k0 = (w.k + (w.dir > 0 ? 3 : 1)) % 4, f = r.next();
       const ax = b.cx + CX[k0] * E, az = b.cz + CZ[k0] * E; w.tx = b.cx + CX[w.k] * E; w.tz = b.cz + CZ[w.k] * E;
       w.pos.set(ax + (w.tx - ax) * f, 0.15, az + (w.tz - az) * f); w.yaw = Math.atan2(w.tx - w.pos.x, w.tz - w.pos.z); w.on = true; w.cross = false; w.wait = 0; w.door = null;
       // some come out of a shop door instead
       const ds = this.doors(b); if (ds.length && r.chance(0.3)) { const dr = r.pick(ds); w.pos.set(dr.x - dr.nx * 0.3, b.y0, dr.z - dr.nz * 0.3); w.yaw = Math.atan2(dr.nx, dr.nz); w.door = { stage: 2, x: dr.ax, z: dr.az }; }
+      if (!this.ok(w.pos, focus)) { w.on = false; continue; }
+      w.flee = 0;
       return;
     }
     w.on = false;
@@ -85,7 +155,7 @@ export class Ambient {
   // at a corner: carry on round the block, or cross to the block over the road when the lights allow
   next(w, t) {
     const { i, j, k } = w, jx = k === 1 || k === 2 ? i : i - 1, jz = k >= 2 ? j : j - 1, c = corner(jx, jz), r = this.rng;
-    if (r.chance(0.55)) {
+    if (!w.flee && r.chance(0.55)) {
       const ew = r.chance(0.5), ni = ew ? i + CX[k] : i, nj = ew ? j : j + CZ[k], nb = this.slab(ni, nj);
       const seg = ew ? eSeg(k === 1 || k === 2 ? i : i - 1, j) : sSeg(i, k >= 2 ? j : j - 1);
       if (nb && seg === 'street') {
@@ -103,12 +173,19 @@ export class Ambient {
   draw(crowd, dt, t) {
     const pl = G.player, focus = pl.state === 'drive' ? G.car.pos : pl.pos, hour = G.env.hour, awake = hour > 6 && hour < 23 ? 1 : 0.3, yAt = G.metro.yAt, rain = G.env.rain > 0.5;
     this.crowd = crowd; this.dt = dt;
+    { const e = G.camera.matrixWorld.elements, fx = -e[8], fz = -e[10], fl = Math.hypot(fx, fz); this.cul = fl > 0.5 ? [e[12], e[14], fx / fl, fz / fl] : null; }   // the camera's heading, to skip figures behind it
+    this.fresh = this.last.distanceToSquared(focus) > 80 * 80; this.last.copy(focus);   // first frame, or a jump (fast travel): fill the streets anywhere
+    this.threats.length = 0; const V = G.villains;
+    if (V && V.foes) for (const f of V.foes) if (f.alive && !f.gone && f.pos && (f.pos.x - focus.x) ** 2 + (f.pos.z - focus.z) ** 2 < OUT * OUT) this.threats.push(f.pos);
+    const back = (w) => { if (w.cross) return; w.dir = -w.dir; w.k = (w.k + w.dir + 4) % 4; const b = this.slab(w.i, w.j); if (b) { w.tx = b.cx + CX[w.k] * E; w.tz = b.cz + CZ[w.k] * E; } };
     let best = null, bd = 9;
     const dogsNear = [];
     this.w.forEach((w, n) => {
       const d2 = (w.pos.x - focus.x) ** 2 + (w.pos.z - focus.z) ** 2;
-      if (!w.on || d2 > 250 * 250) { if (n < N * awake * (rain ? 0.6 : 1)) this.place(w, focus); else w.on = false; if (!w.on) return; }
+      if (w.on && n >= N * awake * (rain ? 0.6 : 1) && this.unseen(w, d2)) w.on = false;   // night or rain: fewer out, the extras go home once out of sight
+      if (!w.on || d2 > OUT * OUT) { if (n < N * awake * (rain ? 0.6 : 1)) this.place(w, focus); else w.on = false; if (!w.on) return; }
       let anim = 'idle', sp = 0;
+      if (w.flee > 0) w.flee -= dt; else this.scare(w, back);
       if (w.stop > 0) { w.stop -= dt; w.yaw = dampAngle(w.yaw, Math.atan2(pl.pos.x - w.pos.x, pl.pos.z - w.pos.z), 6, dt); }
       else if (w.wait > 0) w.wait -= dt;
       else {
@@ -118,10 +195,34 @@ export class Ambient {
           if (b) for (const dr of this.doors(b)) { const px = dr.ax - w.pos.x, pz = dr.az - w.pos.z, along = (px * lx + pz * lz) / ll, off = Math.abs(px * lz - pz * lx) / ll; if (along > 2 && along < Math.min(ll, 30) && off < 2.5) { w.door = { stage: 0, x: dr.ax, z: dr.az, ix: dr.x - dr.nx * 0.4, iz: dr.z - dr.nz * 0.4 }; break; } }
         }
         const gx = w.door ? (w.door.stage === 1 ? w.door.ix : w.door.x) : w.tx, gz = w.door ? (w.door.stage === 1 ? w.door.iz : w.door.z) : w.tz;
-        const dx = gx - w.pos.x, dz = gz - w.pos.z, d = Math.hypot(dx, dz); sp = w.cross ? 1.9 : w.door && w.door.stage === 1 ? w.speed * 0.8 : w.speed;
+        const dx = gx - w.pos.x, dz = gz - w.pos.z, d = Math.hypot(dx, dz); sp = w.flee > 0 ? 4.4 : w.cross ? 1.9 : w.door && w.door.stage === 1 ? w.speed * 0.8 : w.speed;
         if (d < 0.4) { if (!w.door) this.next(w, t); else if (w.door.stage === 0) w.door.stage = 1; else if (w.door.stage === 1) { w.on = false; w.door = null; this.entered = (this.entered || 0) + 1; return; } else w.door = null; }
-        else { w.pos.x += (dx / d) * sp * dt; w.pos.z += (dz / d) * sp * dt; w.yaw = dampAngle(w.yaw, Math.atan2(dx, dz), 8, dt); w.phase += sp * dt * 4.2; anim = 'walk'; }
+        else { w.pos.x += (dx / d) * sp * dt; w.pos.z += (dz / d) * sp * dt; w.yaw = dampAngle(w.yaw, Math.atan2(dx, dz), 8, dt); w.phase += sp * dt * (w.flee > 0 ? 3 : 4.2); anim = w.flee > 0 ? 'run' : 'walk'; }
         w.pos.y = yAt(w.pos.x, w.pos.z);
+      }
+      this.figure(w, anim, d2, sp);
+      if (w.kid) { this.besides(w, w.kid, -0.75, 0.15); w.kid.phase = w.phase * 1.3; this.figure(w.kid, anim, d2, sp); }
+      if (w.dog && d2 < 35 * 35) dogsNear.push([d2, w, anim]);
+      if (w.rig && d2 < bd && pl.state === 'walk') { bd = d2; best = w; }
+    });
+    // Meridian's pavements (only while Meridian is within range)
+    const mx = Math.max(0, Math.abs(focus.x) - 170), mz = Math.max(0, Math.abs(focus.z) - 170), mOn = Math.hypot(mx, mz) < MOUT - 20;
+    const mback = (w) => { const a = w.at; w.at = w.to; w.to = a; this.aim(w); };
+    this.m.forEach((w, n) => {
+      let d2 = (w.pos.x - focus.x) ** 2 + (w.pos.z - focus.z) ** 2;
+      if (w.on && n >= MN * awake * (rain ? 0.6 : 1) && this.unseen(w, d2)) w.on = false;
+      if (!w.on || d2 > MOUT * MOUT) { if (mOn && n < MN * awake * (rain ? 0.6 : 1)) this.mplace(w, focus); else w.on = false; if (!w.on) return; d2 = (w.pos.x - focus.x) ** 2 + (w.pos.z - focus.z) ** 2; }
+      let anim = 'idle', sp = 0;
+      if (w.flee > 0) w.flee -= dt; else this.scare(w, mback);
+      if (w.stop > 0) { w.stop -= dt; w.yaw = dampAngle(w.yaw, Math.atan2(pl.pos.x - w.pos.x, pl.pos.z - w.pos.z), 6, dt); }
+      else {
+        const dx = w.tx - w.pos.x, dz = w.tz - w.pos.z, d = Math.hypot(dx, dz); sp = w.flee > 0 ? 4.4 : w.speed;
+        if (d < 0.45) {
+          // a shop door on the way: now and then they go in, and someone else turns up elsewhere
+          if (w.to.door && !w.kid && !w.dog && !w.flee && this.rng.chance(0.12)) { w.on = false; return; }
+          const from = w.at; w.at = w.to; w.to = this.mnext(w, from); this.aim(w);
+        } else { const st = Math.min(d, sp * dt); w.pos.x += (dx / d) * st; w.pos.z += (dz / d) * st; w.yaw = dampAngle(w.yaw, Math.atan2(dx, dz), 8, dt); w.phase += sp * dt * (w.flee > 0 ? 3 : 4.2); anim = w.flee > 0 ? 'run' : 'walk'; }
+        w.pos.y = terrainY(w.pos.x, w.pos.z);
       }
       this.figure(w, anim, d2, sp);
       if (w.kid) { this.besides(w, w.kid, -0.75, 0.15); w.kid.phase = w.phase * 1.3; this.figure(w.kid, anim, d2, sp); }
@@ -180,6 +281,7 @@ export class Ambient {
       return;
     }
     e.rig = false;
+    const c = this.cul; if (c && d2 > 30 * 30) { const dx = e.pos.x - c[0], dz = e.pos.z - c[1]; if (dx * c[2] + dz * c[3] < -0.1 * Math.hypot(dx, dz)) return; }   // behind the camera: nothing to draw
     this.crowd.add(e.pos, e.yaw, l.scale, l.col, anim, e.phase || 0, l.build);
   }
   // for event crowds: one figure, known by a key so a close one can keep its detailed rig from frame to frame
