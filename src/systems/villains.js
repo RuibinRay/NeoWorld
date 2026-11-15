@@ -725,6 +725,8 @@ export class Villains {
   heroOn() { this.nextRaid = Math.min(this.nextRaid, 30); }
   heroOff() { this.endTraining(); this.endRaid(true); this.endBoss(true); for (const k of Object.keys(this.hide)) { this.hide[k].remove(); delete this.hide[k]; } for (const pr of this.proj) pr.orb.life = 0; this.proj.length = 0; }
   heroDown() {
+    // knocked out in a hideout assault: it ends here, with its own message (the pull-back rule is for walking away)
+    if (this.raid && this.raid.type === 'hideout') { const R = this.raid; G.ui.toast(`You were knocked out at ${R.name}. The crew regroup; the generators you wrecked stay wrecked.`, 'warn'); this.endRaid(true); }
     if (this.boss) { const b = this.boss; say(b.isBoss ? b.bossKind : 'kurozan', b.isBoss ? b.short : 'Kurozan', 'Come back when you are stronger.'); G.ui.toast(`${b.isBoss ? b.short : 'Kurozan'} leaves. Try again from the Hero Hall.`, 'warn'); this.endBoss(true); }
   }
   // the training ground at the Hero Hall: three robots that take every hit and never hit back
@@ -768,7 +770,7 @@ export class Villains {
       if (!on && this.found(k) && dist < 500) this.hide[k] = new Hideout(this, k);
       else if (on && !taking && (dist > 700 || !this.found(k))) { on.remove(); delete this.hide[k]; }
       if (this.hide[k]) this.hide[k].update(dt, t);
-      if (this.hide[k] && !this.raid && !this.boss && !H.training && dist < 110 && G.player.pos.y > this.hide[k].at.y - 6) this.startHideout(k);
+      if (this.hide[k] && !this.raid && !this.boss && !H.training && H.alive && dist < 110 && G.player.pos.y > this.hide[k].at.y - 6) this.startHideout(k);
     }
   }
   startHideout(k) {
