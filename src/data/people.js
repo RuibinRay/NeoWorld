@@ -285,3 +285,21 @@ export function buildLocals(D) {
   staff('nexus', 'yard', { android: true, job: 'yard marshal unit', top: '#d9b23a', lines: ['Four thousand containers. I know where each one is. Ask me about any of them. Nobody ever does.', 'The gantry and I have an understanding. It lifts. I stand clear.'] });
   return out;
 }
+// ---- Phase 5: the regulars of the four Midtown squares (data/hubs.js, world/hubs.js) ------------
+// Each square has a keeper at the food kiosk and six regulars who live round it and spend the
+// day on the square. They are their own zone, like the district locals.
+export function buildHubLocals(hubs) {
+  const r = new RNG(4848), out = [], used = new Set(), m = (h, mm = 0) => h * 60 + mm, jit = (t, j = 30) => t + Math.round(r.range(-j, j));
+  const name = () => { let n; do { n = pick(r, FIRST) + ' ' + pick(r, LAST); } while (used.has(n)); used.add(n); return n; };
+  for (const h of hubs) {
+    out.push({ id: `${h.id}:keeper`, zone: h.id, name: h.keeper.name, job: h.keeper.job, lines: h.keeper.lines, talk: true, look: humanLook(r, { coat: false, visor: false, top: h.color === '#4de1ff' ? '#2f4a5a' : '#f1ede6' }), home: h.doors[0],
+      plan: [[0, 'home'], [m(7, 0), 'post', h.post, h.face], [m(22, 0), 'home']],
+      shop: h.menu.map((it) => ({ label: `Buy ${it.name.toLowerCase()}`, price: it.price, item: { name: it.name, energy: it.energy }, say: it.say })) });
+    for (let i = 0; i < 6; i++) {
+      const [job, lines] = h.locals[i % h.locals.length], late = i % 3 === 2;
+      const plan = [[0, 'home'], [jit(m(7, 40)), 'stroll'], [jit(m(12, 30)), 'home'], [jit(m(13, 50)), 'stroll'], [jit(late ? m(22, 30) : m(20, 40)), 'home']];
+      out.push({ id: `${h.id}${i}`, zone: h.id, name: name(), job, lines, look: humanLook(r), home: h.doors[i % h.doors.length], plan, talk: true });
+    }
+  }
+  return out;
+}

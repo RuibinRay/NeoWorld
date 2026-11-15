@@ -10,7 +10,7 @@ import { G } from '../core/game.js';
 import { terrainY } from '../world/city.js';
 import { std } from '../world/materials.js';
 import { makeHumanoid, varyLook, animateRig, setMood, makeDog, animateDog, makeRover, makeCleaner, makeParcel, addCanopy } from './rigs.js';
-import { buildCast, buildLocals, ambientPair } from '../data/people.js';
+import { buildCast, buildLocals, buildHubLocals, ambientPair } from '../data/people.js';
 import { Crowd } from './crowd.js';
 import { RNG, dampAngle, damp, clamp, angDelta, TAU } from '../core/util.js';
 
@@ -436,7 +436,7 @@ export class NPCSystem {
     this.street = G.nav.nodes.filter((n) => n.street && !n.zone); this.zones = {};
     for (const n of G.nav.nodes) if (n.zone && n.street) (this.zones[n.zone] = this.zones[n.zone] || []).push(n);
     this.crowd = new Crowd();
-    const cast = [...buildCast(G.nav.doors), ...buildLocals(G.districts)];
+    const cast = [...buildCast(G.nav.doors), ...buildLocals(G.districts), ...buildHubLocals(G.metro.hubs || [])];
     cast.forEach((def, i) => { const n = new NPC(def, this); n.k = i; this.list.push(n); this.byId.set(n.id, n); });
     // staff behind counters can be addressed from the customer side
     const pl = G.city.places, service = { clerk: pl.shop.counterPoint, chef: pl.restaurant.chefPoint, host: pl.restaurant.hostPoint, vendor: pl.cart };

@@ -324,6 +324,22 @@ Events that are on show as orange rings on the map. Two new milestones: "Night o
 - Night Run rivals do not stop at red lights; they take the 2 s penalty instead, as you do.
 - The Expo exhibits are text panels with a hologram, not interactive.
 
+### The Midtown squares
+
+Midtown used to be mostly towers with nothing to stop for. Each of its four quarters now has a square, 480 m out from Meridian on the compass lines. They show on the map in their colour:
+
+| Square | Quarter | Kiosk keeper and food |
+| --- | --- | --- |
+| Lantern Square | Northbank, north | Hollis Ade: lantern noodles, ginger broth |
+| Circuit Plaza | Eastline, east | Tamsin Okeke: solder-shot espresso, circuit bao |
+| Tidewalk Square | Southgate, south | Marisol Vey: kelp-fish tacos, sea-salt lemonade |
+| Foundry Yard | Westworks, west | Bram Okoro: foundry skewers, smoked corn |
+
+- **The square:** stone paving, a fountain with a lit column carrying the square's name, benches, trees, the food truck, and a kiosk on the east side. The kiosk is open from 07:00 to 22:00.
+- **The regulars:** six people live round each square (28 new residents with the keepers). They spend the day there, stop at the kiosk, and you can talk to them. They go home at night and when it rains.
+- **Hot food runs:** at a kiosk, take an order to the keeper of another square. It pays about ◈14 plus ◈35 a km. If it arrives before it goes cold, there's a tip of up to the same again (the timer is 30 s plus 1 s for every 5 m). Walk, drive, or fly it as a hero. A cold order still pays, without the tip. The route is on your map, and the timer shows in the objective panel.
+- The first time you walk into a square, its name comes up with a short tip.
+
 
 ## Looks
 

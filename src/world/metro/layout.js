@@ -3,6 +3,7 @@
 // block, so the city is the same on every launch; meshes are built from it only near the player.
 import { RNG } from '../../core/util.js';
 import { SITE_LIST } from '../../data/sites.js';
+import { HUB_AT } from '../../data/hubs.js';
 import { P, HB, useAt, blockRect, URBAN, streetBetween, inCanal } from './landuse.js';
 
 export const FY = 0.15;
@@ -99,7 +100,8 @@ export function makeLayout(col, roads) {
     b.cut = roadNear(R, 0); if (b.cut) b.y0 = 0;
     b.streets = { n: streetBetween(use, useAt(i, j - 1)), s: streetBetween(use, useAt(i, j + 1)), w: streetBetween(use, useAt(i - 1, j)), e: streetBetween(use, useAt(i + 1, j)) };
     const dist = Math.hypot(cx, cz);
-    b.plaza = !b.cut && (use === 'core' || use === 'mid') && r.chance(0.07);
+    const hub = HUB_AT.get(i * 100 + j);                                                        // the four Midtown squares (data/hubs.js) are always open plazas
+    b.plaza = (!b.cut && (use === 'core' || use === 'mid') && r.chance(0.07)) || !!hub; b.hub = hub ? hub.id : null;
     // ---- buildings ----
     if (!b.plaza) for (const l of lotsFor(r, use)) {
       const L = { x0: cx + l.x0, x1: cx + l.x1, z0: cz + l.z0, z1: cz + l.z1 };
