@@ -78,16 +78,31 @@ function applySize() {
   bloom.setSize(innerWidth * PR * 0.5, innerHeight * PR * 0.5);
 }
 applySize();
-const perf = { t: 0, n: 0, good: 0, tries: 0 };
+const perf = { t: 0, n: 0, good: 0, tries: 0, step: 0 };
 addEventListener('resize', () => { PR = PR_MAX; perf.tries = 0; applySize(); });
+// Judged once a second (or every 50 frames). Frames up to half a second count: a slow machine is
+// exactly when this matters; only longer gaps (the tab hidden, a hitch) are ignored.
 function adaptResolution(rawDt) {
-  if (rawDt > 0.1) return; // tab was hidden
+  if (rawDt > 0.5) return;
   perf.t += rawDt; perf.n++;
-  if (perf.n < 50) return;
+  if (perf.n < 50 && perf.t < 1) return;
   const avg = perf.t / perf.n; perf.t = 0; perf.n = 0;
-  if (avg > 0.0215 && PR > PR_MIN) { PR = Math.max(PR_MIN, PR - 0.15); perf.good = 0; applySize(); }
+  if (avg > 0.0215 && PR > PR_MIN) { PR = Math.max(PR_MIN, PR - (avg > 0.05 ? 0.3 : 0.15)); perf.good = 0; applySize(); }
+  else if (avg > 0.034 && Settings.data.quality === 'auto') stepDown();   // effects go only below about 30 fps
+
   else if (avg < 0.0175 && PR < PR_MAX && perf.tries < 2) { if (++perf.good >= 30) { perf.good = 0; perf.tries++; PR = Math.min(PR_MAX, PR + 0.15); applySize(); } }
   else perf.good = 0;
+}
+// Auto quality, at its lowest resolution and still slow: give up the costly effects one at a time,
+// then a little resolution and draw distance (what Low does), and say so once.
+function stepDown() {
+  const s = ++perf.step;
+  if (s === 1) bloom.enabled = false;
+  else if (s === 2) { G.env.sun.castShadow = false; G.softShadows = true; }
+  else if (s === 3) { for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples) { rt.samples = 0; rt.dispose(); } }
+  else if (s === 4) { G.lodClose = 0.75; G.metro.stream.radius = 280; PR_MIN = Math.min(PR_MIN, 0.65); }
+  else { perf.step = 4; return; }
+  if (s === 1 && G.ui) G.ui.toast('Graphics lowered automatically to keep the game smooth. Settings ▸ Graphics quality to choose for yourself.', 'info');
 }
 
 // ---- world ---------------------------------------------------------------------------------
@@ -117,7 +132,7 @@ initSystems();
 // Graphics quality: applied at boot and whenever the setting changes.
 function applyQuality() {
   Q = QUALITY[Settings.data.quality];
-  PR_MAX = Math.min(DPR, Q.prMax); PR_MIN = Math.min(Q.prMin, PR_MAX); PR = PR_MAX; perf.tries = 0; perf.good = 0;
+  PR_MAX = Math.min(DPR, Q.prMax); PR_MIN = Math.min(Q.prMin, PR_MAX); PR = PR_MAX; perf.tries = 0; perf.good = 0; perf.step = 0;
   for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples !== Q.msaa) { rt.samples = Q.msaa; rt.dispose(); }
   bloom.enabled = Q.bloom; G.env.sun.castShadow = Q.shadows; G.softShadows = !Q.shadows; G.lodClose = Q.close; G.metro.stream.radius = Q.detail;
   applySize();
@@ -235,11 +250,15 @@ const meter = { t: 0, n: 0, worst: 0 };
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  // A frame up to 0.1 s long is simulated in steps of at most 0.05 s, so the game keeps real speed
+  // down to 10 frames a second instead of turning to slow motion (the simulation is cheap; drawing is not).
+  const raw = (now - last) / 1000, total = Math.min(0.1, raw), steps = Math.max(1, Math.ceil(total / 0.05)), dt = total / steps; last = now;
   adaptResolution(raw);
-  try { G.pad.poll(dt); } catch (e) { console.warn('gamepad', e); }
-  let d2 = dt; if (G.hitStop > 0) { G.hitStop -= dt; d2 = dt * 0.06; }   // a big hit freezes the world for a few frames
-  if (dt > 0 && !G.paused) guarded(d2);
+  try { G.pad.poll(total); } catch (e) { console.warn('gamepad', e); }
+  for (let k = 0; k < steps; k++) {
+    let d2 = dt; if (G.hitStop > 0) { G.hitStop -= dt; d2 = dt * 0.06; }   // a big hit freezes the world for a few frames
+    if (dt > 0 && !G.paused) guarded(d2);
+  }
   try { composer.render(); } catch (e) { fail(e, 'render'); }
   if (raw < 0.5) { meter.t += raw; meter.n++; meter.worst = Math.max(meter.worst, raw); }
   if (meter.t >= 0.5) { G.fps = meter.n / meter.t; G.ui.showFps(Settings.data.fps ? `${Math.round(G.fps)} fps · ${(1000 * meter.t / meter.n).toFixed(1)} ms · worst ${(meter.worst * 1000).toFixed(0)} ms · scale ${PR.toFixed(2)}` : null); meter.t = 0; meter.n = 0; meter.worst = 0; }

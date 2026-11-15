@@ -480,12 +480,17 @@ export class Heroes {
   }
   // a point on a building ahead and above, to one side of the heading (alternating hands, so you
   // weave down the street), high enough that the bottom of the arc clears whatever is under it
+  // how far above street-canyon height you are: 0 up to 30 m over the street, 1 from 60 m (see swingHigh)
+  swingHigh() { const p = G.player, g = G.colliders.groundAt(p.pos.x, p.pos.z, p.pos.y + 0.3, 0.5, 0.3); return clamp((p.pos.y - g - 30) / 30, 0, 1); }
   findAnchor(head, side = 0) {
     const p = G.player, col = G.colliders, s = p.rig.root.scale.y, H = 1.5 * s, ox = p.pos.x, oy = p.pos.y + H, oz = p.pos.z;
     const fx = Math.sin(head), fz = Math.cos(head), rx = -fz, rz = fx;
     const hs = Math.hypot(p.vel.x, p.vel.z), gHere = col.groundAt(ox, oz, p.pos.y + 0.3, 0.5, 0.3);
+    // High above the street, lines go further ahead and lower, so each arc dips back down toward the
+    // canyon instead of every swing ratcheting you up the towers (holding Space used to climb past 200 m).
+    const high = this.swingHigh(), wantAng = 0.65 + 0.45 * high;
     let best = null, bs = -1e9;
-    for (let i = -5; i <= 5; i++) for (const el of [0.55, 0.75, 0.95, 1.15, 1.35]) {
+    for (let i = -5; i <= 5; i++) for (const el of high > 0 ? [0.35, 0.55, 0.75, 0.95, 1.15] : [0.55, 0.75, 0.95, 1.15, 1.35]) {
       const yaw = head + i * 0.22, ce = Math.cos(el), dx = Math.sin(yaw) * ce, dy = Math.sin(el), dz = Math.cos(yaw) * ce;
       const L = col.raycast(ox, oy, oz, dx, dy, dz, 80);
       if (L >= 80 || L < 8) continue;
@@ -498,7 +503,7 @@ export class Heroes {
       if (Lmax < 7) continue;
       const Lr = Math.min(L, Lmax), ang = Math.atan2(fwd, up), al = Math.abs(lat);
       const bottom = qy - Math.min(L * 0.93, Lmax) - H - floor;              // where the feet will be at the bottom of this arc, above the street
-      let sc = -Math.abs(ang - 0.65) * 9                                      // about 35-40 degrees ahead of straight up: a long, fast arc
+      let sc = -Math.abs(ang - wantAng) * 9                                   // about 35-40 degrees ahead of straight up: a long, fast arc (further ahead when high)
         - Math.abs(i) * 0.22 * 5                                              // close to the heading
         - Math.abs(Lr - (26 + hs * 0.35)) * 0.12                              // longer lines at speed
         - (L - Lr) * 0.3                                                      // a line that has to reel in a lot is a worse line
@@ -526,7 +531,8 @@ export class Heroes {
     const sp = p.vel.length(), vr = p.vel.dot(r);
     if (vr < 0 && sp > 1) { p.vel.addScaledVector(r, -vr); const t = p.vel.length(); if (t > 0.3) p.vel.multiplyScalar((sp * 0.92) / t); }
     this.lastSide = A.side; this.zips = 2;
-    this.startMove('swing', { a: piv, L, Lwant: Math.min(L * 0.93, A.Lmax), head, side: A.side, ph: -1 });
+    // high up, the line is not reeled in (reeling in lifts you); low down it pulls in a little for a snappier arc
+    this.startMove('swing', { a: piv, L, Lwant: Math.min(this.swingHigh() > 0.3 ? L : L * 0.93, A.Lmax), head, side: A.side, ph: -1 });
     // the line shoots out from the hand, sticks a moment later, and is drawn to the real point on the building
     const sd = A.side, from = (v) => (sd < 0 ? this.handL(v) : this.hand(v));
     this.mv.ropes = this.webLine(from, A.a, G.elapsed);
@@ -573,11 +579,12 @@ export class Heroes {
     const hv0 = Math.hypot(p.vel.x, p.vel.z);
     if (hv0 > 4) for (const sd of [-1, 1]) { const sx = (-p.vel.z / hv0) * sd, sz = (p.vel.x / hv0) * sd, d = col.raycast(p.pos.x, p.pos.y + 1.1, p.pos.z, sx, 0, sz, 6); if (d < 6) { p.vel.x -= sx * (6 - d) * 7 * dt; p.vel.z -= sz * (6 - d) * 7 * dt; } }
     const n = Math.min(6, Math.max(1, Math.ceil((p.vel.length() * dt) / 0.35))), h = dt / n, before = this._before || (this._before = V());
+    const push = 11 * (1 - clamp((p.pos.y - gUnder - 30) / 30, 0, 1));                   // high above the street the push fades, so the energy is not spent climbing
     for (let i = 0; i < n; i++) {
       p.vel.y -= 28 * h;                                                                 // heavier than a fall: a snappy arc
       const rx = a.x - p.pos.x, ry = a.y - p.pos.y - H, rz = a.z - p.pos.z, D = Math.hypot(rx, ry, rz) || 1, sp = p.vel.length();
       const low = Math.max(0, ry / D);                                                   // 1 with the line straight up: the bottom of the arc
-      if (sp > 0.5 && sp < 46) p.vel.multiplyScalar(1 + (11 * low * low * low * h) / sp);   // a push through the bottom: swings build speed
+      if (sp > 0.5 && sp < 46) p.vel.multiplyScalar(1 + (push * low * low * low * h) / sp);   // a push through the bottom: swings build speed
       const hv = Math.hypot(p.vel.x, p.vel.z);
       if (hv > 2) { const cur = Math.atan2(p.vel.x, p.vel.z), d = angDelta(cur, mv.head); if (Math.abs(d) < 1.6) { const b = cur + clamp(d, -2.6 * h, 2.6 * h); p.vel.x = Math.sin(b) * hv; p.vel.z = Math.cos(b) * hv; } }   // straight down the street, not round the anchor
       if (mz > 0) { p.vel.x += hx * 5 * h; p.vel.z += hz * 5 * h; } else if (mz < 0) p.vel.multiplyScalar(1 - 0.9 * h);
@@ -608,12 +615,12 @@ export class Heroes {
     this.endMove(); p.fling = true;
     if (byPlayer && rising && ph >= 0.4) {
       const hv = Math.hypot(p.vel.x, p.vel.z), k = hv > 1 ? Math.min(1.12, 48 / hv) : 1;
-      p.vel.x *= k; p.vel.z *= k; p.vel.y += 8; if (p.vel.length() > 50) p.vel.setLength(50);
+      p.vel.x *= k; p.vel.z *= k; p.vel.y += 8 * (1 - 0.6 * this.swingHigh());   // a smaller lift when you are already high if (p.vel.length() > 50) p.vel.setLength(50);
       p.play('spin', 0.38); G.fx.ring(this.centre(), '#3fe0c5', 0.4, 3.5, 0.35); G.fx.spark(this.centre(), '#e8fbff', 10, 4, 0.35, 0.1, 2);
       if (G.sfx) G.sfx.play('whoosh', null, 0.9);
       this.perfect = (this.perfect || 0) + 1;
     } else if (byPlayer && rising && ph > 0.05) p.vel.y += 4;
-    else p.vel.y += byPlayer ? 1.5 : 2.5;
+    else p.vel.y += byPlayer ? 1.5 : this.swingHigh() > 0 ? 0 : 2.5;   // the hop between chained lines only low down
   }
   // Shift in the air: a line to whatever is ahead and a hard yank along it (twice, then swing, land or touch a wall)
   webZip() {
