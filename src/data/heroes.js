@@ -9,7 +9,7 @@ export const HEROES = {
     blurb: 'Swings between towers on lines, runs up walls, and ties villains up.',
     look: { kind: 'human', skin: '#c68d6b', hair: '#16171c', hairStyle: 4, top: '#1d2a33', bottom: '#1d2a33', accent: '#3fe0c5', outfit: 'plain', sleeves: 'long', legs: 'trousers', shoe: '#0f1418', height: 1.76, build: 0.95, shape: 0.3, boots: true },
     moves: [
-      ['Light', 'Punch, punch, kick'], ['Heavy', 'Yank: pulls the nearest enemy in front of you into a slam'],
+      ['Light', 'Punch, punch, kick; in the air, a web strike: zip in and kick the enemy you aim at'], ['Heavy', 'Yank: pulls the nearest enemy in front of you into a slam'],
       ['1 Line', 'Pull an enemy to you, or zip to the wall you aim at'], ['2 Snare', 'A sticky ball that ties up everyone it splashes'],
       ['3 Danger sense', 'For 6 s every attack misses you'], ['R Line storm', 'Lines to every villain within 30 m: tied up and pulled together'],
       ['Space (hold)', 'Jump and swing from a line to the building ahead; keep holding and the next line goes out by itself'],
@@ -24,7 +24,7 @@ export const HEROES = {
     blurb: 'A suit of flying armour with palm blasters, missiles and a chest beam.',
     look: { kind: 'android', shell: '#3a4048', top: '#b8652a', bottom: '#2b3038', accent: '#59e0ff', headType: 0, height: 1.85, build: 1.15, girth: 1.08 },
     moves: [
-      ['Light', 'Armoured punches; in the air, palm shots'], ['Heavy', 'Charged palm blast'],
+      ['Light', 'Armoured punches; in the air, palm shots (hold to keep firing in flight; they bend toward the enemy you aim at)'], ['Heavy', 'Charged palm blast'],
       ['1 Missiles', 'Six missiles that find the nearest villains'], ['2 Chest beam', 'A beam from the core for 2 s'],
       ['3 Pulse shield', 'A shockwave, then 6 s of a shield that stops most damage'], ['R Overload', 'The whole suit discharges: a blast 20 m wide'],
       ['Space in the air', 'Fly: WASD where you look, Space up, C down; C at the ground lands'], ['Shift in flight', 'Afterburner: builds to 62 m/s and breaks the sound barrier'], ['Fast landing', 'A three-point landing with a shockwave'],
