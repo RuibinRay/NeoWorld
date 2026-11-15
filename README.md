@@ -652,6 +652,52 @@ on it (the crosshair ray used to pass under the ground), which helps every power
 powers, **R** ultimate when the meter is full (landing hits fills it). The crosshair aims. On a
 gamepad in Hero Mode: RB light, LB heavy, the d-pad up/right/down for 1/2/3 and left for R.
 
+**Street crime** (`systems/villains.js`, the 'street' raids): after the first robot raid of a session,
+about half of what happens is ordinary crime, marked like a raid (an amber beam, a route, the objective
+panel) and flashed as CRIME. A **mugging**: two thugs crowd a resident, who stands with hands up;
+beat the thugs and the resident thanks you and walks off. A **robbery**: four crooks with loot bags
+at their feet, two of them armed. A **getaway car**: it tears off down the streets at 9 m/s, about as
+fast as the quickest heroes run, turning away from walls; it brakes into every turn, lurches and slows
+for a moment each time it is hit, and slows for good when badly damaged. Stop it within 700 m (four or
+five of Strand's web strikes do it) and a crook and a thug bail out to fight; if it gets away, the
+crime is lost. (At first it ran at 15 m/s and no hero without lines or flight ever caught it; in the
+playtest below Warden caught the 9 m/s car 4 times out of 4 and Bulwark, the slowest, 2 out of 4.) The
+crooks are people, not robots: thugs brawl (a brute's ways without the ground slam, weaker punches),
+armed crooks keep their distance and fire small yellow pistol shots; until a hero comes they menace
+their victim and send residents running rather than smashing walls; beaten, they are knocked out
+(no sparks or explosion), and Strand's lines wrap them like anyone else. Crimes pay less than raids
+(◈100 + ◈30 a crook, ◈80 for a resident saved, ◈150 for a stopped car, plus 50 experience), are
+counted on their own (they do not bring Kurozan closer), and the next incident comes sooner
+(40-70 s). Tested by script: a mugging (resident saved, ◈240), a robbery (8 shots fired at the hero,
+◈220), a getaway stopped (◈310) and one that escaped after 40 s; the first incident of a fresh session
+was Kurozan's raid, and 208 of the next 400 were crimes.
+
+**Playtest: every hero in a real fight, and what it changed.** Each of the eleven heroes fought raids at
+the normal frame rate (1/60 s) with a scripted player: real key presses and aiming, cooldowns as they
+are, no health top-ups, walking in from 40 m. Robot raids, Vektor's drone raids, Shade's raids, the
+getaway car and Kurozan's boss fight. What it found, and the fixes:
+- *A knocked-out hero could be knocked out again* during the fade back to the Hero Hall (0.38 s alive at
+  0 HP where they fell): against Vektor's drones Sable was knocked out 32 times in a row. The hero now
+  stays down until the fade has carried them to the Hall.
+- *Vektor's core was out of reach* of heroes who fight up close (hovering 8 m up): Bulwark could not
+  finish his raid at all. Every 9 s he now dips to about 2 m above you for 3.6 s (a red ring warns, no
+  laser while low); Bulwark now clears the raid in about 20 s. Hijacked drones are capped at four out
+  at once, two every 16 s (was two every 12 s, without limit).
+- *The getaway car outran every hero on foot* (see above).
+- *Heroes fought under the rain umbrella*; it is only for you as yourself now.
+- *The camera, pushed in by a wall, filled the screen with the hero's back*: within 1.1 m the hero is
+  hidden instead.
+- Balance: Strand was the weakest fighter (28 s to clear a robot raid against 7-17 s for the others,
+  beaten by Kurozan's dragon, an ultimate of 96 damage against 270-420). Punch, punch, kick 15/15/24
+  (was 11/11/18), the yank's slam 34 (26), the web strike 40 (34), the snare 14 (8), Line Storm 70 a
+  villain plus a 40 slam where they land (32), health 135 (120); Strand now clears a robot raid in
+  about 8 s and beat Kurozan in 20-30 s. Robot raids were too easy (Strand lost 8 health, Forge 22):
+  brutes now punch for 12 (10) and more often, gunners shoot more often for 9; heroes now lose 15-40%
+  of their health in a raid. Sable (down to 21 of 130 in a raid) and Kitsu (39 of 140 after the robots
+  were sharpened) have 155 health.
+- What was fine: all eleven ultimates fire; no stuck moves, no falls through the world, no console
+  errors; code 7103 works typed into the pause menu; Shade's raids and Kurozan's boss fight are won.
+
 **Kurozan's crew:** every couple of minutes while you are a hero, his war robots (Stormbreaker
 brutes, gunners and storm drones) raid a street 100–400 m away: a red beam marks it, the map shows
 it and a route is set. Until you come they smash shopfronts and scare people off the street; then
