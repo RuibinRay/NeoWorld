@@ -143,11 +143,32 @@ class Foe {
         if (this.cool <= 0) { this.cool = 2.8; this.aimAt = H.centre().clone(); this.wind = { t: 0.8, anim: 'idle', fn: () => this.laser() }; }
         this.callT -= dt; if (this.callT <= 0) { this.callT = 12; for (let k = 0; k < 2; k++) this.sys.spawnExtra('hdrone', this.pos.clone().add(V().set((k - 0.5) * 4, -1, 0))); G.ui.toast('Vektor hijacks two more drones.', 'warn'); }
         this.yaw = dampAngle(this.yaw, toYaw, 3, dt);
-      } else { // drone: circle the hero overhead, shoot
-        const a = t * 0.6 + this.strafe * 2, tx = P.x + Math.cos(a) * 10, tz = P.z + Math.sin(a) * 10, ty = P.y + this.hover;
-        this.pos.x = damp(this.pos.x, tx, 1.2, dt); this.pos.z = damp(this.pos.z, tz, 1.2, dt); this.pos.y = damp(this.pos.y, ty, 1.5, dt);
-        if (this.cool <= 0) { this.cool = 2 + Math.random() * 0.8; this.shoot(); }
-        this.yaw = dampAngle(this.yaw, toYaw, 5, dt);
+      } else { // drone: circle the hero overhead and shoot; every few seconds, a swoop down to ram them
+        // The swoop is the window for heroes who fight up close: a red ring marks the spot in front of you
+        // (0.7 s), the drone dives through it at chest height (step out of the ring and it misses), then
+        // hangs there for 1.6 s, low enough to punch, before it climbs back up.
+        this.swoopT = (this.swoopT ?? 3 + Math.random() * 4) - dt;
+        const sw = this.swoop;
+        if (sw) {
+          sw.t += dt;
+          if (sw.phase === 'warn') { this.pos.y = damp(this.pos.y, P.y + this.hover + 1, 3, dt); if (Math.random() < dt * 12) G.fx.glow.emit(this.pos.x, this.pos.y, this.pos.z, 0, 0, 0, '#ff3b30', 0.12, 0.6, 0.2, 0, 0); if (sw.t > 0.7) { sw.phase = 'dive'; sw.t = 0; if (G.audio) G.audio.burst(0.35, 0.05, 700, 'bandpass'); } }
+          else if (sw.phase === 'dive') {
+            this.pos.x = damp(this.pos.x, sw.at.x, 7, dt); this.pos.z = damp(this.pos.z, sw.at.z, 7, dt); this.pos.y = damp(this.pos.y, sw.at.y, 7, dt);
+            if (!sw.hit && this.pos.distanceTo(H.centre()) < 1.5) { sw.hit = true; const f = V().set(P.x - this.pos.x, 0, P.z - this.pos.z).normalize(); H.hurt(this.kind === 'hdrone' ? 7 : 8, f, { knock: 6, up: 2, src: this }); G.fx.spark(H.centre(), '#ff6a00', 10, 5, 0.3, 0.12); }
+            if (sw.t > 0.6) { sw.phase = 'low'; sw.t = 0; }
+          } else if (sw.phase === 'low') { this.pos.y = sw.at.y + Math.sin(sw.t * 9) * 0.08; if (sw.t > 1.6) { this.swoop = null; this.swoopT = 5 + Math.random() * 4; } }
+          this.yaw = dampAngle(this.yaw, toYaw, 8, dt);
+        } else {
+          const a = t * 0.6 + this.strafe * 2, tx = P.x + Math.cos(a) * 10, tz = P.z + Math.sin(a) * 10, ty = P.y + this.hover;
+          this.pos.x = damp(this.pos.x, tx, 1.2, dt); this.pos.z = damp(this.pos.z, tz, 1.2, dt); this.pos.y = damp(this.pos.y, ty, 1.5, dt);
+          if (this.cool <= 0) { this.cool = 2 + Math.random() * 0.8; this.shoot(); }
+          this.yaw = dampAngle(this.yaw, toYaw, 5, dt);
+          if (this.swoopT <= 0 && dist < 25 && !(this.sys.foes.some((o) => o !== this && o.swoop))) {   // one at a time
+            const l = dist || 1, at = V().set(P.x - dx / l * 1.1, P.y + 1.3, P.z - dz / l * 1.1);
+            this.swoop = { phase: 'warn', t: 0, at, hit: false };
+            G.fx.zone(V().set(at.x, P.y, at.z), 1.6, 0.75); if (G.audio) { G.audio.blip(980, 0.06); setTimeout(() => G.audio && G.audio.blip(980, 0.06), 160); }
+          }
+        }
       }
     } else { // smashing up the street until a hero comes
       const s = this.sys.raid ? this.sys.raid.site : this.pos, ddx = s.x - this.pos.x, ddz = s.z - this.pos.z, dd = Math.hypot(ddx, ddz);
