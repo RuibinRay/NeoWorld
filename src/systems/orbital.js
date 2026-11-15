@@ -115,7 +115,7 @@ export class OrbitalLift {
       const e = sc.s.eye, pc = clamp(p.camPitch, -0.2, 1.2); p.camYaw = clamp(p.camYaw, sc.s.a - 1.1, sc.s.a + 1.1);
       cam.up.set(0, 1, 0); cam.position.copy(e); cam.lookAt(e.x + Math.sin(p.camYaw) * Math.cos(pc), e.y - Math.sin(pc), e.z + Math.cos(p.camYaw) * Math.cos(pc));
       cam.fov = 14; cam.updateProjectionMatrix();
-      G.ui.setObjective({ title: 'Telescope', text: `Looking ${sc.s.what}`, sub: 'Mouse to look · E to step back' });
+      G.ui.setObjective({ title: 'Telescope', text: `Looking ${sc.s.what}`, sub: 'Mouse to look · E or Esc to step back' });
     }
   }
 }

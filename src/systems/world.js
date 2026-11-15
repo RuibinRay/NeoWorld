@@ -109,19 +109,19 @@ export class World {
     if (!G.economy.spend(15, 'Sim Arena session')) return;
     p.state = 'busy'; p.busyAnim = 'idle'; p.faceCam = true; p.board = false; p.vel.set(0, 0, 0); this.vr = { t: 45, score: 0, combo: 0, hits: 0, fp: p.firstPerson }; p.firstPerson = true; p.camPitch = 0;
     this.cross.style.display = 'block'; for (const t of this.targets) this.spawn(t);
-    G.ui.toast('Sim Arena: look at a target and press Space to fire. F ends the session.', 'info');
+    G.ui.toast('Sim Arena: look at a target and press Space to fire. F or Esc ends the session.', 'info');
   }
   spawn(t) { const p = G.player, yaw = p.camYaw + this.rng.range(-1.3, 1.3), el = this.rng.range(-0.05, 0.6), d = this.rng.range(12, 22); t.dir.set(Math.sin(yaw) * Math.cos(el), Math.sin(el), Math.cos(yaw) * Math.cos(el)); t.dist = d; t.size = this.rng.range(0.7, 1.3); t.life = this.rng.range(2.6, 4.2); t.m.visible = true; t.m.scale.setScalar(t.size); t.m.position.set(p.pos.x + t.dir.x * d, p.pos.y + p.eyeY + t.dir.y * d, p.pos.z + t.dir.z * d); }
   updateVR(dt, t) {
     const v = this.vr, p = G.player, inp = G.input;
-    if (inp.pressed('KeyF') || p.state !== 'busy') return this.endVR();
+    if (inp.pressed('KeyF') || inp.pressed('Escape') || p.state !== 'busy') return this.endVR();
     v.t -= dt;
     const fx = Math.sin(p.camYaw) * Math.cos(p.camPitch), fy = -Math.sin(p.camPitch), fz = Math.cos(p.camYaw) * Math.cos(p.camPitch);
     let aimed = null;
     for (const g of this.targets) { g.life -= dt; g.m.rotation.y += dt * 2; g.m.rotation.x += dt; if (g.life <= 0) { this.spawn(g); continue; } const dot = fx * g.dir.x + fy * g.dir.y + fz * g.dir.z; if (dot > Math.cos(Math.atan(g.size / g.dist) + 0.012) && (!aimed || g.dist < aimed.dist)) aimed = g; g.m.material.color.set(0x7dff9c); }
     if (aimed) aimed.m.material.color.set(0xffd34d);
     if (inp.pressed('Space')) { if (aimed) { v.combo++; v.hits++; v.score += 10 + Math.min(10, v.combo - 1) * 2; this.spawn(aimed); if (G.audio) G.audio.blip(700 + v.combo * 30, 0.07); } else { v.combo = 0; if (G.audio) G.audio.blip(200, 0.04); } }
-    G.ui.setObjective({ title: 'Sim Arena', text: `${Math.max(0, Math.ceil(v.t))} s · ${v.score} points · combo ${v.combo}`, sub: 'Look at a target (it turns gold), Space to fire · F to leave' });
+    G.ui.setObjective({ title: 'Sim Arena', text: `${Math.max(0, Math.ceil(v.t))} s · ${v.score} points · combo ${v.combo}`, sub: 'Look at a target (it turns gold), Space to fire · F or Esc to leave' });
     if (v.t <= 0) this.endVR();
   }
   endVR() {

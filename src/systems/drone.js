@@ -39,14 +39,14 @@ export class DroneOps {
   startSlalom() {
     if (!this.begin(-5, 1.8, -35.5, Math.atan2(5, 5.5))) return;
     this.run = { kind: 'race', idx: 0, t: 0, running: false }; this.paint();
-    G.ui.toast('Commons Drone Slalom: W/S thrust, A/D turn, Space up, C down. F recalls the drone.', 'info');
+    G.ui.toast('Commons Drone Slalom: W/S thrust, A/D turn, Space up, C down. F or Esc recalls the drone.', 'info');
   }
   startDeliveries() {
     const p = G.player;
     if (!this.begin(p.pos.x + Math.sin(p.yaw) * 1.5, p.pos.y + 1.7, p.pos.z + Math.cos(p.yaw) * 1.5, p.yaw)) return;
     const pool = DROPS.slice(), list = []; while (list.length < 3) list.push(pool.splice(Math.floor(this.rng.next() * pool.length), 1)[0]);
     this.run = { kind: 'deliver', list, i: 0, t: 0, earned: 0 }; this.aim();
-    G.ui.toast('Drone delivery: three parcels. Fly into each gold ring. F recalls the drone.', 'info');
+    G.ui.toast('Drone delivery: three parcels. Fly into each gold ring. F or Esc recalls the drone.', 'info');
   }
   aim() { const d = this.run.list[this.run.i]; this.target.position.set(d[1], d[2] + 1.6, d[3]); this.target.visible = true; }
   stop(msg) {
@@ -59,7 +59,7 @@ export class DroneOps {
   update(dt, t) {
     const r = this.run; if (!r) return;
     const inp = G.input, col = G.colliders, q = this.pos, v = this.vel, p = G.player;
-    if (inp.pressed('KeyF') || p.state !== 'busy') return this.stop('Drone recalled.');
+    if (inp.pressed('KeyF') || inp.pressed('Escape') || p.state !== 'busy') return this.stop('Drone recalled.');
     // flight
     const f = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), yw = (inp.down('KeyA') ? 1 : 0) - (inp.down('KeyD') ? 1 : 0), u = (inp.down('Space') ? 1 : 0) - (inp.down('KeyC') || inp.down('ControlLeft') ? 1 : 0);
     this.yaw += yw * 2.5 * dt;
