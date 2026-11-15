@@ -147,6 +147,14 @@ export const VILLAINS = {
   // ordinary crime: muggings, shop robberies, getaway cars (systems/villains.js, the 'street' raids)
   street: { name: 'Street crooks', short: 'Crooks', crew: 'Street crooks', color: '#ffb347' },
 };
+// Each crew's hideout (systems/villains.js). Stopping a crew's raids gathers intel on it; with enough
+// (2 the first time, one more each time it is rebuilt) it shows on the map. Taking it means three waves
+// of the crew, three generators that keep calling in more of them, and a lieutenant in the last wave.
+export const HIDEOUTS = {
+  kurozan: { name: 'the container yard', area: 'Industrial Nexus', x: -635, z: 750, lieut: { kind: 'brute', name: 'Ironjaw', title: "Ironjaw, Kurozan's lieutenant" }, face: 'villain-kurozan.jpg', line: 'Ironjaw does not lose. Ironjaw only waits.' },
+  vektor: { name: 'the hangar apron', area: 'Aeroport', x: -1000, z: -215, lieut: { kind: 'brute', name: 'Overseer V-9', title: "Overseer V-9, Vektor's foreman" }, face: 'villain-vektor.jpg', line: 'Intruder logged. Assigning all units.' },
+  shade: { name: 'the neon deck', area: 'Neon District', where: 'up on the deck, 14 m above the street (the lifts go up from the Undercity)', x: 800, z: 165, lieut: { kind: 'ninja', name: 'Kage', title: "Kage, Shade's second" }, face: 'villain-shade.jpg', line: 'You walked into the dark on your own feet.' },
+};
 // street crooks' clothes: each one picks a look at random
 const THUG = (o) => ({ kind: 'human', hair: '#16171c', bottom: '#22252c', accent: '#ffb347', sleeves: 'long', legs: 'trousers', shoe: '#14151a', shape: 0.2, ...o });
 const THUG_LOOKS = [

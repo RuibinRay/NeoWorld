@@ -7,12 +7,13 @@
 // player in the 'hero' state, driven by move() below; everything else rides on normal walking.
 import * as THREE from 'three';
 import { G } from '../core/game.js';
-import { HEROES, HERO_IDS } from '../data/heroes.js';
+import { HEROES, HERO_IDS, HIDEOUTS, VILLAINS } from '../data/heroes.js';
 import { clamp, damp, dampAngle, angDelta } from '../core/util.js';
 import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
 import { artUrl } from '../world/art.js';
+const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 
 const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
 const SLOTS = ['p1', 'p2', 'p3', 'ult'];
@@ -99,6 +100,7 @@ export class Heroes {
           { label: `Costume: ${['classic', 'alternate', 'elite'][this.costume || 0]}`, desc: `Alternate at level 2, elite at level 5 (now level ${this.level()})`, onPick: () => this.costumeMenu() },
           { label: `${this.H.name}'s moves`, onPick: () => this.movesMenu() },
           { label: 'Boss fights', desc: 'Kurozan, Vektor and Shade, each in their own arena', onPick: () => this.bossMenu() },
+          { label: 'Hideouts', desc: 'Each crew has a base: stop their raids to find it, then take it', onPick: () => this.hideoutMenu() },
         ] : []),
         { label: 'Upgrades', desc: 'Power, vitality and focus, for every hero', onPick: () => this.upgradeMenu() },
         ...(this.on ? [{ label: this.training ? 'End training' : 'Training ground', desc: 'Three robots that never hit back, and a damage readout', onPick: () => { if (this.training) { G.villains.endTraining(); G.ui.toast('Training over.', 'info'); } else G.villains.startTraining(); } }] : []),
@@ -134,6 +136,16 @@ export class Heroes {
         { label: 'Shade, of the Shadow Clan', desc: `The Undercity · shadow copies and blinks · beaten ${s.bossS || 0}×`, onPick: () => G.villains.startBoss('shade') },
         { label: 'Back', onPick: () => this.menu() },
       ] });
+  }
+  hideoutMenu() {
+    const s = this.st, V2 = G.villains, row = (k) => {
+      const d = HIDEOUTS[k], v = VILLAINS[k], lv = (s.hideLv || {})[k] || 0, need = V2.intelNeed(k), got = Math.min(need, (s.intel || {})[k] || 0), taken = (s.taken || {})[k] || 0;
+      return V2.found(k)
+        ? { label: `${v.crew}: found`, desc: `${d.name}, ${d.area}${d.where ? ' (' + d.where.split(' (')[0] + ')' : ''} · level ${lv + 1} · taken ${taken}× · set a route`, onPick: () => { if (G.metro && G.metro.setRoute) try { G.metro.setRoute(d.x, d.z, G.player.pos); } catch { /* no route */ } G.ui.toast(`Route set to ${poss(k)} hideout at ${d.name}. Go within about 100 m to start.`, 'info'); } }
+        : { label: `${v.crew}: intel ${got} of ${need}`, desc: `Stop ${need - got} more of their raid${need - got === 1 ? '' : 's'} to find their base${taken ? ` · taken ${taken}×` : ''}`, disabled: true, why: `Stop ${poss(k)} raids to find their hideout.` };
+    };
+    G.ui.openMenu({ title: 'Hideouts', who: 'Hero Hall', body: 'Every raid you stop gives intel on that crew\'s hideout. Once it is found it shows on the map in their colour. Taking it: three waves, three generators that keep calling in more of the crew, and a lieutenant in the last wave. It pays well, and the crew stop raiding for a while; they set up again, tougher.',
+      options: [...Object.keys(HIDEOUTS).map(row), { label: 'Back', onPick: () => this.menu() }] });
   }
   partnerMenu() { this.heroMenu((id) => { if (id === this.id) { G.ui.toast('Pick someone else as your partner.', 'info'); return this.partnerMenu(); } this.partner = id; this.st.partner = id; G.ui.toast(`${HEROES[id].name} is your partner: G swaps in.`, 'good'); this.menu(); }, 'Choose a partner'); }
   costumeMenu() {
