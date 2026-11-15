@@ -64,7 +64,7 @@ export class Heroes {
   }
   get H() { return HEROES[this.id]; }
   get st() { const s = G.state; if (!s.heroes) s.heroes = { raids: 0, boss: 0, used: {} }; return s.heroes; }
-  get alive() { return this.on && this.downT <= 0; }
+  get alive() { return this.on && this.downT <= 0 && !this.reviving; }   // still down while the screen fades to the Hall
   get diff() { return DIFF[this.st.diff || 'normal']; }
   // hero damage multiplier: Power upgrades, Bulwark's rage and rampage
   get dmgMul() { let k = (1 + 0.15 * ((this.st.up || {}).power || 0)) * (this.level() >= 3 ? 1.1 : 1); if (this.id === 'bulwark') k *= (1 + (this.rage || 0) / 100 * 0.6) * (this.ult > 0 ? 2 : 1); return k; }
@@ -359,7 +359,7 @@ export class Heroes {
     this.meter = Math.min(100, this.meter + dt * (this.ult > 0 ? 0 : 0.6));
     if (this.channel) this.stepChannel(dt);
     this.stepProjectiles(dt); this.stepHounds(dt, t);
-    if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); this.drawHud(dt); return; }
+    if (this.downT > 0 || this.reviving) { if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); } this.drawHud(dt); return; }
     this.applyStats(); if (was > 0 && this.balloon <= 0) this.applyStats();
     this.visuals(dt, t); this.passives(dt, t); this.speedFeel(dt);
     this.airT = p.grounded ? 0 : (this.airT || 0) + dt;
@@ -799,7 +799,7 @@ export class Heroes {
     // in the air (or on a line) with an enemy in front, a web strike; otherwise punch, punch, kick
     const p = G.player, air = (p.state === 'walk' && !p.grounded && !p.swim) || (this.mv && this.mv.kind === 'swing'), t = air && this.airTarget(30, 0.75);
     if (t) return this.webStrike(t);
-    this.combo3({ anims: ['punchR', 'punchL', 'kick'], dmg: [11, 11, 18], knock: [3, 3, 8], range: 2.5, deg: 55, wall: 0.6 });
+    this.combo3({ anims: ['punchR', 'punchL', 'kick'], dmg: [15, 15, 24], knock: [3, 3, 8], range: 2.5, deg: 55, wall: 0.6 });   // (was 11 / 11 / 18: Strand was the slowest to clear any fight)
   }
   // The web strike: a line to the enemy, a zip in feet first, and a kick that rebounds Strand up and back
   // into the air, ready to swing or strike again (the move the swing games build their air combat on)
@@ -817,7 +817,7 @@ export class Heroes {
       const hl = Math.hypot(dx, dz) || 1, ux = dx / hl, uz = dz / hl, hit = L < 2.6 && t.alive, c = mv.last.clone();
       this.endMove(); p.fling = true;
       if (hit) {
-        this.ball(c, 1.8, { dmg: 34, knock: 15, up: 5, kind: 'blunt', dir: V().set(ux, 0.25, uz).normalize(), max: 1 });
+        this.ball(c, 1.8, { dmg: 40, knock: 15, up: 5, kind: 'blunt', dir: V().set(ux, 0.25, uz).normalize(), max: 1 });
         G.fx.ring(c, '#3fe0c5', 0.3, 3.2, 0.3, V().set(ux, 0, uz)); G.fx.spark(c, '#e8fbff', 14, 7, 0.35, 0.12); G.fx.shake(0.25); this.sound('swish');
         p.vel.set(-ux * 6, 10, -uz * 6); p.play('spin', 0.4);   // rebound up and back off the kick
       } else p.vel.multiplyScalar(0.4);
@@ -846,7 +846,7 @@ export class Heroes {
     if (!best) { p.play('kick', 0.3); this.later(0.1, () => this.cone(2.8, 70, { dmg: 16, knock: 9, up: 3 })); return; }
     G.fx.beam((v) => this.hand(v), (v) => G.combat.centre(best, v), '#e8fbff', 0.03, 0.35);
     best.hit(0, this.v.subVectors(c, G.combat.centre(best, this.w)).setY(0).normalize(), { knock: Math.min(60, Math.max(0, bd - 1.6) * 5), up: 0, pull: true, byHero: true });   // slides to a stop about 1.6 m in front
-    this.later(0.32, () => { p.play('heavy', 0.3); this.ball(this.chest().addScaledVector(this.fwd(), 1.6), 1.8, { dmg: 26, knock: 11, up: 6, kind: 'blunt' }); G.fx.ring(this.chest(), '#3fe0c5', 0.3, 3, 0.3); });
+    this.later(0.32, () => { p.play('heavy', 0.3); this.ball(this.chest().addScaledVector(this.fwd(), 1.6), 1.8, { dmg: 34, knock: 11, up: 6, kind: 'blunt' }); G.fx.ring(this.chest(), '#3fe0c5', 0.3, 3, 0.3); });
   }
   strandP1() {
     const a = this.aim(48), p = G.player; this.faceAim(0.4); p.play('castR', 0.3); this.sound('web');
@@ -865,14 +865,16 @@ export class Heroes {
   }
   strandP2() {
     const a = this.aim(60), h = this.hand(); this.faceAim(0.4); G.player.play('castR', 0.3); this.sound('web');
-    this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 36, r: 0.28, color: '#f2fbff', dmg: 8, knock: 1, stun: 4, kind: 'web', blast: 3, life: 1.6, trail: '#cfefff' });
+    this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 36, r: 0.28, color: '#f2fbff', dmg: 14, knock: 1, stun: 4, kind: 'web', blast: 3, life: 1.6, trail: '#cfefff' });
   }
   strandP3() { this.dodge = 6; G.fx.ring(this.centre(), '#3fe0c5', 0.5, 3.5, 0.5); G.ui.flash('DANGER SENSE', 1); this.sound('power'); }
   strandUlt() {
     const p = G.player, c = this.chest(), list = [...G.combat.targets].filter((t) => t.alive && G.combat.centre(t, this.w).distanceTo(c) < 30);
     p.vel.y = 9; p.grounded = false; p.play('spin', 0.9); G.ui.flash('LINE STORM', 1.2);
     const focus = c.clone().addScaledVector(this.fwd(V(), 0), 5);
-    for (const t of list) { G.fx.beam((v) => this.hand(v), (v) => G.combat.centre(t, v), '#e8fbff', 0.035, 0.8); const d = V().subVectors(focus, G.combat.centre(t, this.w)).setY(0); const L = d.length(); t.hit(32, d.normalize(), { knock: Math.min(20, L * 1.8), up: 5, stun: 5, kind: 'web', byHero: true }); }
+    // every villain within 30 m is hit and dragged in (70 each), then they are slammed together where they land (40 more)
+    for (const t of list) { G.fx.beam((v) => this.hand(v), (v) => G.combat.centre(t, v), '#e8fbff', 0.035, 0.8); const d = V().subVectors(focus, G.combat.centre(t, this.w)).setY(0); const L = d.length(); t.hit(70 * this.dmgMul, d.normalize(), { knock: Math.min(20, L * 1.8), up: 5, stun: 5, kind: 'web', byHero: true }); }
+    if (list.length) this.later(0.7, () => { this.ball(focus.clone(), 4.5, { dmg: 40, knock: 12, up: 6, kind: 'blunt', color: '#e8fbff' }); G.fx.ring(focus, '#3fe0c5', 0.4, 5, 0.4); G.fx.shake(0.3); this.sound('boom'); });
     G.fx.ring(c, '#e8fbff', 1, 30, 0.7); if (!list.length) G.ui.toast('No villains within 30 m to tie up.', 'info');
   }
 
@@ -1380,8 +1382,9 @@ export class Heroes {
     if (G.music) G.music.sting('lose');
   }
   revive() {
-    const p = G.player;
-    G.ui.fade(() => { p.state = 'walk'; p.pos.set(this.hall.x + 3.5, this.hall.y + 0.2, this.hall.z + 3.5); p.vel.set(0, 0, 0); this.hp = this.max; this.meter = 0; this.downT = 0; this.cd = {}; });
+    // the hero stays down (not 'alive', so nothing can hit them again) until the fade has carried them to the Hall
+    const p = G.player; this.reviving = true;
+    G.ui.fade(() => { this.reviving = false; p.state = 'walk'; p.pos.set(this.hall.x + 3.5, this.hall.y + 0.2, this.hall.z + 3.5); p.vel.set(0, 0, 0); this.hp = this.max; this.meter = 0; this.downT = 0; this.cd = {}; });
   }
 
   // ---- looks: auras, steam, the guardian, the shield ----------------------------------------------------

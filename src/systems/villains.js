@@ -124,12 +124,12 @@ class Foe {
       if (this.ai === 'brute') {
         if (dist > 2.1) { mx = dx / dist; mz = dz / dist; sp = dist > 8 ? (this.human ? 5.5 : 5) : 3.6; }
         if (this.slamT <= 0 && dist < 6 && this.kind === 'brute') { this.slamT = 7 + Math.random() * 3; this.wind = { t: 0.8, anim: 'raise', fn: () => this.slam() }; G.fx.zone(V().set(this.pos.x, this.pos.y, this.pos.z), 4.5, 0.8); }
-        else if (this.cool <= 0 && dist < 2.6) { this.cool = 1.3 + Math.random() * 0.4; this.wind = { t: 0.35, anim: 'guard', fn: () => this.punch() }; }
+        else if (this.cool <= 0 && dist < 2.6) { this.cool = (this.human ? 1.3 : 1.05) + Math.random() * 0.4; this.wind = { t: 0.35, anim: 'guard', fn: () => this.punch() }; }
         this.yaw = dampAngle(this.yaw, toYaw, 8, dt);
       } else if (this.ai === 'gunner') {
         const want = dist < 9 ? -1 : dist > 19 ? 1 : 0, tx = dz / dist * this.strafe, tz = -dx / dist * this.strafe;
         mx = dx / dist * want + tx * 0.6; mz = dz / dist * want + tz * 0.6; sp = 3.2; if (Math.random() < dt * 0.3) this.strafe *= -1;
-        if (this.cool <= 0 && dist < 34) { this.cool = 1.4 + Math.random() * 0.6; this.wind = { t: 0.3, anim: 'castR', fn: () => this.shoot() }; }
+        if (this.cool <= 0 && dist < 34) { this.cool = (this.human ? 1.4 : 1.1) + Math.random() * 0.5; this.wind = { t: 0.3, anim: 'castR', fn: () => this.shoot() }; }
         this.yaw = dampAngle(this.yaw, toYaw, 8, dt);
       } else if (this.kind === 'ninja' || this.kind === 'shade') {   // fast blades; they blink behind you, throw stars from range
         const boss = this.kind === 'shade'; this.blinkT = (this.blinkT ?? 2 + Math.random() * 3) - dt;
@@ -144,10 +144,16 @@ class Foe {
         if (boss) { this.callT -= dt; if (this.callT <= 0) { this.callT = 14; for (let k = 0; k < 2; k++) this.sys.spawnExtra('ninja', this.pos.clone().add(V().set((k - 0.5) * 3, 0, 1.5))); G.ui.toast('Shade calls shadow clones out of the dark.', 'warn'); } }
         this.yaw = dampAngle(this.yaw, toYaw, 10, dt);
       } else if (this.kind === 'vcore') {   // Vektor: hovers high, lasers, calls hijacked drones
-        const a = t * 0.3 + this.strafe, tx = P.x + Math.cos(a) * 14, tz = P.z + Math.sin(a) * 14, ty = P.y + this.hover;
-        this.pos.x = damp(this.pos.x, tx, 0.7, dt); this.pos.z = damp(this.pos.z, tz, 0.7, dt); this.pos.y = damp(this.pos.y, ty, 1, dt);
-        if (this.cool <= 0) { this.cool = 2.8; this.aimAt = H.centre().clone(); this.wind = { t: 0.8, anim: 'idle', fn: () => this.laser() }; }
-        this.callT -= dt; if (this.callT <= 0) { this.callT = 12; for (let k = 0; k < 2; k++) this.sys.spawnExtra('hdrone', this.pos.clone().add(V().set((k - 0.5) * 4, -1, 0))); G.ui.toast('Vektor hijacks two more drones.', 'warn'); }
+        // Every 9 s he swoops down close to recharge (a red ring warns first): 3.6 s about 2 m above you, no laser,
+        // the window for heroes who can only fight up close
+        this.dipT = (this.dipT ?? 7) - dt;
+        if (this.dipT <= 0 && !(this.dip > 0)) { this.dip = 3.6; this.dipT = 9; G.fx.zone(V().set(P.x, P.y, P.z), 4.5, 0.7, '#ff2a4f'); if (G.audio) G.audio.tone(220, 0.5, 0.05, 'sawtooth', null, 0, 0.5); }
+        const low = this.dip > 0; if (low) this.dip -= dt;
+        const a = t * 0.3 + this.strafe, rr = low ? 4.5 : 14, tx = P.x + Math.cos(a) * rr, tz = P.z + Math.sin(a) * rr, ty = P.y + (low ? 2.0 : this.hover), k = low ? 2.4 : 0.7;
+        this.pos.x = damp(this.pos.x, tx, k, dt); this.pos.z = damp(this.pos.z, tz, k, dt); this.pos.y = damp(this.pos.y, ty, low ? 2.4 : 1, dt);
+        if (this.cool <= 0 && !low) { this.cool = 2.8; this.aimAt = H.centre().clone(); this.wind = { t: 0.8, anim: 'idle', fn: () => this.laser() }; }
+        // reinforcements: two hijacked drones every 16 s, but never more than four of them out at once
+        this.callT -= dt; if (this.callT <= 0) { this.callT = 16; const out = this.sys.foes.filter((f) => f.alive && f.kind === 'hdrone').length, n = Math.min(2, 4 - out); for (let k = 0; k < n; k++) this.sys.spawnExtra('hdrone', this.pos.clone().add(V().set((k - 0.5) * 4, -1, 0))); if (n > 0) G.ui.toast(`Vektor hijacks ${n === 1 ? 'another drone' : 'two more drones'}.`, 'warn'); }
         this.yaw = dampAngle(this.yaw, toYaw, 3, dt);
       } else { // drone: circle the hero overhead and shoot; every few seconds, a swoop down to ram them
         // The swoop is the window for heroes who fight up close: a red ring marks the spot in front of you
@@ -219,7 +225,7 @@ class Foe {
   punch() {
     const f = V().set(Math.sin(this.yaw), 0, Math.cos(this.yaw)), c = this.centre().addScaledVector(f, 1.3);
     this.anim = 'punchR'; if (G.audio) G.audio.burst(0.12, 0.08, 400);
-    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: this.human ? 6 : 10, knock: this.human ? 5 : 7, dir: f, src: this });
+    G.combat.villainStrike({ kind: 'sphere', c, r: 1.3 }, { dmg: this.human ? 6 : 12, knock: this.human ? 5 : 7, dir: f, src: this });
   }
   slam() {
     const c = V().set(this.pos.x, this.pos.y + 0.3, this.pos.z);
@@ -239,7 +245,7 @@ class Foe {
     const from = this.flying ? V().copy(this.pos).add(V().set(0, -0.2, 0)) : this.rig.elbR.localToWorld(V().set(0, -0.36, 0.56)), aim = H.centre().clone();
     aim.x += G.player.vel.x * 0.25 + (Math.random() - 0.5) * 1.4; aim.z += G.player.vel.z * 0.25 + (Math.random() - 0.5) * 1.4; aim.y += (Math.random() - 0.5) * 0.8;
     const dir = aim.sub(from).normalize();
-    this.sys.shoot({ from, dir, speed: this.flying ? 24 : 30, r: this.flying ? 0.22 : 0.15, color: this.flying ? '#ff6a00' : '#ff8a00', dmg: this.flying ? 9 : 8, knock: 4, blast: this.flying ? 2 : 0, copy: this.flying ? 'rockets' : 'volley', src: this });
+    this.sys.shoot({ from, dir, speed: this.flying ? 24 : 30, r: this.flying ? 0.22 : 0.15, color: this.flying ? '#ff6a00' : '#ff8a00', dmg: 9, knock: 4, blast: this.flying ? 2 : 0, copy: this.flying ? 'rockets' : 'volley', src: this });
     if (G.heroes) G.heroes.saw(this.flying ? 'rockets' : 'volley', this.pos);
     if (G.audio && G.player.pos.distanceTo(this.pos) < 50) G.audio.tone(this.flying ? 500 : 760, 0.1, 0.03, 'square', null, 0, 0.5);
   }
@@ -345,10 +351,12 @@ class Victim {   // hands up while the crooks crowd round; once they are down, t
   }
   remove() { this.rig.root.removeFromParent(); this.gone = true; }
 }
-class Getaway {   // a getaway car tearing off down the streets: stop it within 600 m, then the crooks inside bail out
+class Getaway {   // a getaway car tearing off down the streets: stop it within 700 m, then the crooks inside bail out
   constructor(sys, pos) {
     this.sys = sys; this.start = pos.clone(); this.pos = pos.clone(); this.h = 0.8; this.r = 1.6; this.alive = true; this.team = 'villain'; this.big = true; this.name = 'Getaway car';
-    this.hp = this.max = Math.round(150 * G.heroes.diff.hp); this.speed = 15;
+    // 9 m/s: about as fast as the quickest heroes run, and it brakes into every turn and lurches when hit, so a hero
+    // on foot can keep up and land the blows that slow it (at 15 m/s no one without lines or flight ever caught it)
+    this.hp = this.max = Math.round(150 * G.heroes.diff.hp); this.speed = 9; this.slowT = 0;
     let best = 0; for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, d = G.colliders.raycast(pos.x, pos.y + 1, pos.z, Math.sin(a), 0, Math.cos(a), 200); if (d > best) { best = d; this.yaw = a; } }
     const g = (this.g = new THREE.Group()); G.scene.add(g); const paint = std('#7a1f2a', 0.35, 0.6);
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 4.4), paint); body.position.y = 0.75; body.castShadow = true; g.add(body);
@@ -360,7 +368,7 @@ class Getaway {   // a getaway car tearing off down the streets: stop it within 
     }
     G.combat.add(this);
   }
-  hit(dmg) { if (!this.alive) return; this.hp -= dmg; G.fx.spark(V().set(this.pos.x, this.pos.y + 1, this.pos.z), '#ffd34d', 6, 5, 0.3, 0.1); if (this.hp <= 0) this.stop(true); }
+  hit(dmg) { if (!this.alive) return; this.hp -= dmg; this.slowT = 1.2; G.fx.spark(V().set(this.pos.x, this.pos.y + 1, this.pos.z), '#ffd34d', 6, 5, 0.3, 0.1); if (this.hp <= 0) this.stop(true); }
   stop(wrecked) {
     this.alive = false; G.combat.remove(this); this.done = wrecked ? 'stopped' : 'escaped';
     if (wrecked) {
@@ -377,12 +385,15 @@ class Getaway {   // a getaway car tearing off down the streets: stop it within 
     if (col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, fx, 0, fz, 16) < 14) {
       const l = col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, fz, 0, -fx, 150), r = col.raycast(this.pos.x, this.pos.y + 1, this.pos.z, -fz, 0, fx, 150); this.yaw += l > r ? Math.PI / 2 : -Math.PI / 2;
       if (G.audio && this.pos.distanceTo(G.player.pos) < 80) G.audio.burst(0.35, 0.05, 1400, 'bandpass');   // tyres
+      this.turnT = 1.0;   // braking into the turn
     }
-    const sp = this.speed * (this.hp < this.max * 0.4 ? 0.55 : 1);   // badly damaged, it slows
+    this.turnT = Math.max(0, (this.turnT || 0) - dt); this.slowT = Math.max(0, this.slowT - dt);
+    // badly damaged it slows for good; braking into a turn or just hit, for a moment
+    const sp = this.speed * (this.hp < this.max * 0.4 ? 0.55 : 1) * (this.turnT > 0 ? 0.4 : 1) * (this.slowT > 0 ? 0.5 : 1);
     this.pos.x += Math.sin(this.yaw) * sp * dt; this.pos.z += Math.cos(this.yaw) * sp * dt; this.pos.y = col.groundAt(this.pos.x, this.pos.z, this.pos.y + 1, 1, 1);
     this.g.position.copy(this.pos); this.g.rotation.y = this.yaw;
     if (this.hp < this.max * 0.4 && Math.random() < dt * 10) G.fx.smoke(V().set(this.pos.x + Math.sin(this.yaw) * 2, this.pos.y + 1, this.pos.z + Math.cos(this.yaw) * 2), 1, '#2a2c31', 1, 1.2);
-    if (this.pos.distanceTo(this.start) > 600) this.stop(false);
+    if (this.pos.distanceTo(this.start) > 700) this.stop(false);
   }
   remove() { this.alive = false; G.combat.remove(this); this.g.removeFromParent(); }
 }
@@ -728,7 +739,7 @@ export class Villains {
         if (left === 0 && R.wave < 3) { R.wave++; this.queueWave(R, 4 + R.wave); G.ui.flash(`WAVE ${R.wave} OF 3`, 1.4); }
       }
       const cagesLeft = (R.cages || []).filter((c) => c.alive).length, truckLeft = R.truck && R.truck.alive;
-      const what = R.type === 'getaway' ? (R.truck ? (R.truck.alive ? ` · stop the car (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 600 m)` : ' · the crooks bailed out') : ' · stop the car') : R.type === 'mugging' ? (R.victim && R.victim.saved ? ' · saved' : ' · save the resident') : R.type === 'rescue' ?` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
+      const what = R.type === 'getaway' ? (R.truck ? (R.truck.alive ? ` · stop the car (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 700 m)` : ' · the crooks bailed out') : ' · stop the car') : R.type === 'mugging' ? (R.victim && R.victim.saved ? ' · saved' : ' · save the resident') : R.type === 'rescue' ?` · ${cagesLeft} cage${cagesLeft === 1 ? '' : 's'} to break` : R.type === 'heist' ? (R.truck ? (R.truck.alive ? ` · stop the truck (${Math.round(R.truck.pos.distanceTo(R.truck.start))} / 450 m)` : ` · truck ${R.truck.done}`) : ' · stop the truck') : R.type === 'defend' ? (R.core ? ` · wave ${R.wave} of 3 · uplink ${Math.max(0, Math.round(R.core.hp / R.core.max * 100))}%` : ' · get to the uplink') : '';   // the uplink is only built once you are close
       if (!G.minigame) G.ui.setObjective({ title: VILLAINS[R.owner].crew, text: R.spawned ? `${left} left at ${R.name}${what}` : `${R.label} at ${R.name}`, sub: `${R.area} · ${Math.round(d)} m` });
       if (R.spawned && R.built && left === 0 && !cagesLeft && !truckLeft && (R.type !== 'defend' || R.wave >= 3)) this.completeRaid();
       R.far = d > 900 ? (R.far || 0) + dt : 0; if (R.far > 60) { G.ui.toast(`The crew at ${R.name} got away with it. Another raid will come.`, 'info'); this.endRaid(true); }

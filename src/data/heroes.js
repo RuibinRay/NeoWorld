@@ -5,7 +5,7 @@
 export const HEROES = {
   strand: {
     alt: { top: '#3a1d2b', bottom: '#3a1d2b', accent: '#ff7ad9' },
-    name: 'Strand', title: 'web-slinging acrobat', color: '#3fe0c5', hp: 120, speed: 1.3, jump: 10.5,
+    name: 'Strand', title: 'web-slinging acrobat', color: '#3fe0c5', hp: 135, speed: 1.3, jump: 10.5,
     blurb: 'Swings between towers on lines, runs up walls, and ties villains up.',
     look: { kind: 'human', skin: '#c68d6b', hair: '#16171c', hairStyle: 4, top: '#1d2a33', bottom: '#1d2a33', accent: '#3fe0c5', outfit: 'plain', sleeves: 'long', legs: 'trousers', shoe: '#0f1418', height: 1.76, build: 0.95, shape: 0.3, boots: true },
     moves: [
@@ -43,7 +43,7 @@ export const HEROES = {
   },
   sable: {
     alt: { vest: '#2f5d4a', top: '#1c2028', accent: '#7dff9c' },
-    name: 'Sable', title: 'the copy fighter', color: '#ff5a6e', hp: 130, speed: 1.3, jump: 9,
+    name: 'Sable', title: 'the copy fighter', color: '#ff5a6e', hp: 155, speed: 1.3, jump: 9,
     blurb: 'Reads any move used against him and uses it back, with a pack of hounds.',
     look: { kind: 'human', skin: '#f1c9a5', hair: '#8a3b2a', hairStyle: 10, top: '#202430', vest: '#3a3f4a', bottom: '#20232c', accent: '#ff5a6e', outfit: 'vest', sleeves: 'long', legs: 'trousers', height: 1.81, build: 0.95, shape: 0.3, boots: true, eye: '#3b2a1e' },
     moves: [
@@ -99,7 +99,7 @@ export const HEROES = {
   },
   kitsu: {
     alt: { top: '#e8742a', bottom: '#16171c', accent: '#ffd34d' },
-    name: 'Kitsu', title: 'clone ninja', color: '#59c8ff', hp: 140, speed: 1.4, jump: 11,
+    name: 'Kitsu', title: 'clone ninja', color: '#59c8ff', hp: 155, speed: 1.4, jump: 11,
     blurb: 'Fills the street with copies of himself and hits with a spinning sphere of wind.',
     look: { kind: 'human', skin: '#f1c9a5', hair: '#1f3a6b', hairStyle: 3, top: '#2a8a9c', bottom: '#e8eef4', accent: '#59c8ff', outfit: 'jacket', shirt: '#e8eef4', sleeves: 'long', legs: 'trousers', height: 1.7, build: 0.9, shape: 0.3 },
     moves: [

@@ -101,7 +101,7 @@ export class Player {
         this.rig.root.position.x -= v.x; this.rig.root.position.y += h - v.y; this.rig.root.position.z -= v.z;
       }
       this.rig.root.visible = !this.firstPerson && this.state !== 'ride';
-      this.rig.canopy.visible = G.env.rain > 0.3 && G.env.indoor < 0.5 && this.state === 'walk';
+      this.rig.canopy.visible = G.env.rain > 0.3 && G.env.indoor < 0.5 && this.state === 'walk' && !(G.heroes && G.heroes.on);   // heroes do not fight under an umbrella
       if (this.jet || this.jetMesh) this.showJet();
       animateRig(this.rig, dt, this.anim, this.turnStep > 0 && this.speed < 0.3 ? 0.9 : this.speed);
       this.updateCamera(dt);
@@ -323,6 +323,7 @@ export class Player {
     this._cd = free < this._cd ? free : damp(this._cd, free, 5, dt);
     cam.position.set(tx + dx * this._cd, this.dive ? Math.min(ty + dy * this._cd, -0.35) : Math.max(ty + dy * this._cd, 0.25), tz + dz * this._cd);   // a diver's camera stays under the surface
     cam.lookAt(tx, ty, tz);
+    if (this._cd < 1.1) this.rig.root.visible = false;   // a wall has pushed the camera into your own head: hide the body rather than fill the screen with it
     const sh = G.fx ? G.fx.shakeK : 0;   // a hard hit or a blast shakes the view
     if (sh > 0.01) { const a = sh * sh * 0.35; cam.position.x += (Math.random() - 0.5) * a; cam.position.y += (Math.random() - 0.5) * a; cam.position.z += (Math.random() - 0.5) * a; }
   }
