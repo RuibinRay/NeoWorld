@@ -45,7 +45,7 @@ export class Arcade {
     if (!G.economy.spend(10, 'Grav-Hoops entry')) return;
     p.state = 'busy'; p.busyAnim = 'idle'; p.faceCam = true; p.board = false; p.crouch = false; p.vel.set(0, 0, 0); p.pos.set(this.cx, FY, 36.5); p.yaw = p.camYaw = 0; p.camPitch = 0.12;
     this.hoops = { t: 60, score: 0, streak: 0, makes: 0, ph: 0, c: 0, charging: false };
-    G.ui.toast('Grav-Hoops: aim with the mouse or arrow keys, hold Space to charge, release to shoot. F to stop.', 'info');
+    G.ui.toast('Grav-Hoops: aim with the mouse or arrow keys, hold Space to charge, release to shoot. F or Esc to stop.', 'info');
   }
   endHoops(quit) {
     const h = this.hoops, p = G.player, s = G.state; this.hoops = null;
@@ -57,7 +57,7 @@ export class Arcade {
   }
   updateHoops(dt) {
     const h = this.hoops, p = G.player, inp = G.input;
-    if (inp.pressed('KeyF') || p.state !== 'busy') return this.endHoops(true);
+    if (inp.pressed('KeyF') || inp.pressed('Escape') || p.state !== 'busy') return this.endHoops(true);
     h.t -= dt; h.ph += (0.5 + (1 - h.t / 60) * 0.9) * dt;
     const hx = this.cx + Math.sin(h.ph) * 3.2; this.hoop.position.x = hx;
     const power = 1 - Math.abs(1 - (h.c % 2));

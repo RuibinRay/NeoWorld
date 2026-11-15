@@ -23,7 +23,7 @@ export class Court {
     p.state = 'busy'; p.busyAnim = 'idle'; p.faceCam = true; p.board = false; p.crouch = false; p.vel.set(0, 0, 0);
     this.game = { k: 0, makes: 0, points: 0, c: 0, charging: false, wait: 0, streak: 0 };
     this.place();
-    G.ui.toast('Shootout: aim with the mouse, hold Space to charge, let go to shoot. Look up for a higher arc. F to stop.', 'info');
+    G.ui.toast('Shootout: aim with the mouse, hold Space to charge, let go to shoot. Look up for a higher arc. F or Esc to stop.', 'info');
   }
   place() {
     const p = G.player, s = this.spot(this.game.k), r = this.rim;
