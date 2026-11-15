@@ -25,6 +25,16 @@ export class Events {
     G.env.onThunder = (d) => { if (G.audio) G.audio.thunder(d); };
   }
   lampFixed() { G.addNews('lamp'); }
+  // Busted: the fine (times your stars), standing lost, and the wanted level cleared
+  citation(mult, extra) {
+    const s = G.state, fine = Math.min(s.wallet, (this.fine || 60) * mult); s.wallet -= fine; s.stats.fines++; s.standing = clamp(s.standing - 5 * mult, -100, 100);
+    G.ui.say(this, `Citation issued: ${this.why}${extra}.`, 4); G.ui.toast(`Aegis-12: citation for ${this.why}${extra}. −${money(fine)}`, 'warn');
+    if (mult > 1 || (G.wanted && G.wanted.stars > 1)) G.ui.flash('BUSTED', 1.6);
+    this.mode = 'patrol'; this.heat = 0; this.cool = 30; this.scan = 0; G.addNews('citation'); G.ui.setObjective(null);
+    if (G.wanted) G.wanted.clear();
+  }
+  // the patrol lost you (systems/wanted.js): back to its rounds
+  lost() { this.mode = 'patrol'; this.heat = 0; this.cool = 20; this.scan = 0; this.chase = 0; G.ui.setObjective(null); }
   helpPatient() {
     const m = this.med, n = m.npc, p = G.player; m.helped = true;
     p.yaw = Math.atan2(n.pos.x - p.pos.x, n.pos.z - p.pos.z); p.play('pet', 2.5);
@@ -69,12 +79,18 @@ export class Events {
     for (const r of d.rotors) r.rotation.z += dt * 45;
   }
   // Something worth the drone's attention happened.
+  // The offence also raises the wanted level (systems/wanted.js): hurting people counts double, so a hit
+  // on a resident is about a star and someone going down about two; traffic offences stop at 2 stars.
   report(kind, amount) {
-    if (this.cool > 0 || (G.racing && G.racing.gp) || (G.nightRun && G.nightRun.race) || G.minigame) return; // organised races are sanctioned
-    this.heat += kind === 'crash' ? clamp(amount / 6, 0.5, 2.5) : kind === 'lowfly' ? 1.2 : amount;
-    if (this.heat >= 3 && this.mode === 'patrol') {
-      this.mode = 'respond'; this.chase = 0; this.evaded = false;
-      this.why = { park: 'parking an aerocar in the Commons', lane: 'manual flight inside a sky lane', red: 'running a red light', speed: 'speeding on city streets', assault: 'attacking residents', damage: 'damaging city property' }[kind] || (kind === 'crash' ? 'reckless driving' : 'reckless flying');
+    if ((G.racing && G.racing.gp) || (G.nightRun && G.nightRun.race) || G.minigame) return; // organised races are sanctioned
+    if (this.cool > 0 && kind !== 'assault' && kind !== 'damage') return;
+    const pts = kind === 'crash' ? clamp(amount / 6, 0.5, 2.5) : kind === 'lowfly' ? 1.2 : kind === 'assault' || kind === 'damage' ? amount * 2 : amount;
+    this.heat += pts;
+    const why = { park: 'parking an aerocar in the Commons', lane: 'manual flight inside a sky lane', red: 'running a red light', speed: 'speeding on city streets', assault: 'attacking residents', damage: 'damaging city property' }[kind] || (kind === 'crash' ? 'reckless driving' : 'reckless flying');
+    if (G.wanted) G.wanted.add(pts, kind, why);
+    if ((G.wanted ? G.wanted.stars >= 1 : this.heat >= 3) && this.mode !== 'respond') {
+      this.mode = 'respond'; this.chase = 0; this.evaded = false; this.fled = false;
+      this.why = why;
       this.fine = { park: 40, lane: 80, red: 70, speed: 60, assault: 120, damage: 90 }[kind] || 60;
       // it comes to you, wherever you are: in from above if it is far away
       const c = G.player.state === 'drive' ? G.car.pos : G.player.pos, q = this.dpos;
@@ -130,21 +146,23 @@ export class Events {
     } else if (this.mode === 'idscan') {
       const n = this.target; tx = n.pos.x; ty = n.pos.y + 5.5; tz = n.pos.z; speed = 9;
       if (Math.hypot(tx - q.x, tz - q.z) < 1.5) { this.scan += dt; if (this.scan > 2.6 || n.inside) { if (n.isNear && !n.inside) G.ui.say(this, `ID verified: ${n.name}. Thank you.`, 2.6); this.mode = 'patrol'; } }
-    } else { // respond to the player: pull over (stop) and be scanned, or pay double for running
-      const c = p.state === 'drive' ? car.pos : p.pos, moving = p.state === 'drive' && car.speed > 2;
-      tx = c.x; ty = c.y + 5; tz = c.z; speed = Math.max(24, (p.state === 'drive' ? car.speed : 0) + 8);
+    } else { // respond to the player: stop and be scanned (a fine times your stars), or run and be wanted more
+      const W = G.wanted, stars = W ? Math.max(1, W.stars) : 1;
+      const c = p.state === 'drive' ? car.pos : p.pos, moving = (p.state === 'drive' ? car.speed : p.vel.length()) > 2.5;
+      // where it is heading: you, or the last place it saw you while it searches
+      const at = W && W.searching ? W.last : c;
+      tx = at.x; ty = at.y + 5; tz = at.z;
+      speed = Math.min(Math.max(24, (p.state === 'drive' ? car.speed : p.vel.length()) + 8), 26 + 6 * stars);   // fast enough to keep up with most things, not everything
       this.chase += dt;
-      const ticket = (mult, extra) => {
-        const s = G.state, fine = Math.min(s.wallet, this.fine * mult); s.wallet -= fine; s.stats.fines++; s.standing = clamp(s.standing - 5 * mult, -100, 100);
-        G.ui.say(this, `Citation issued: ${this.why}${extra}.`, 4); G.ui.toast(`Aegis-12: citation for ${this.why}${extra}. −${money(fine)}`, 'warn');
-        this.mode = 'patrol'; this.heat = 0; this.cool = 30; this.scan = 0; G.addNews('citation'); G.ui.setObjective(null);
-      };
-      if (!G.minigame) G.ui.setObjective({ title: 'Civic Patrol', text: moving ? `Pull over and stop: ${Math.max(0, Math.ceil(18 - this.chase))} s` : 'Hold still for the scan', sub: `Aegis-12 · ${this.why}` });
-      if (Math.hypot(tx - q.x, tz - q.z) < 3 && Math.abs(ty - q.y) < 3.5 && !moving) {
+      // from 3 stars there is no stopping for a scan: lose them (or go down) instead
+      const hot = W && W.stars >= 3;
+      if (!G.minigame) G.ui.setObjective({ title: 'Civic Patrol', text: W && W.searching ? `Searching for you: stay hidden ${Math.max(0, Math.ceil(W.searchTime() - W.unseen))} s` : hot ? 'Enforcers: break their line of sight and stay hidden to lose them' : moving ? (stars >= 2 ? 'Stop for the scan, or break their line of sight to lose them' : `Pull over and stop: ${Math.max(0, Math.ceil(18 - this.chase))} s`) : 'Hold still for the scan',
+        sub: `Aegis-12 · ${this.why}${hot ? '' : ` · fine ${money(this.fine * stars)}`}` });
+      if (!hot && !(W && W.searching) && Math.hypot(tx - q.x, tz - q.z) < 3 && Math.abs(ty - q.y) < 3.5 && !moving) {
         this.scan += dt;
-        if (this.scan > 2.2) ticket(1, '');
+        if (this.scan > 2.2) this.citation(stars, '');
       } else this.scan = 0;
-      if (this.mode === 'respond' && this.chase > 18 && moving) ticket(2, ', and failing to stop');
+      if (this.mode === 'respond' && this.chase > 18 && moving && !this.fled) { this.fled = true; if (W) W.add(6, 'evade', 'failing to stop'); else this.citation(2, ', and failing to stop'); }
     }
     const dx = tx - q.x, dy = ty - q.y, dz = tz - q.z, dist = Math.hypot(dx, dy, dz), st = Math.min(dist, speed * dt);
     if (dist > 0.01) { q.x += (dx / dist) * st; q.y += (dy / dist) * st; q.z += (dz / dist) * st; d.root.rotation.y = dampAngle(d.root.rotation.y, Math.atan2(dx, dz), 4, dt); }

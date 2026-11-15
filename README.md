@@ -661,6 +661,19 @@ Hitting residents costs standing with them and their friends (much more when the
 Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for damaging property outside a
 fight with villains).
 
+**Wanted level** (`systems/wanted.js`, stars under your wallet). Offences raise it: a hit on a
+resident is about a star, someone going down about two, shooting down a patrol drone or running from
+a stop more; traffic offences alone never go past 2 stars. At 1-2 stars the Aegis-12 drone comes for
+you: hold still for its scan and you pay the fine times your stars, which clears them. At 3, 4 and 5
+stars armed enforcer drones join (2, 4, then 6): they circle you and fire stun shots (harder to hit
+when you move fast), and there is no stopping for a scan any more. A hero can shoot them down, which
+only raises the stars; as yourself on foot, three stuns and you are taken in. Every drone needs a
+clear line of sight within 90 m: break it (round a building, indoors, or by outrunning them) and the
+stars flash while they search the last place you were seen; stay hidden for 6 s plus 3 s a star and
+you lose them. A knocked-out hero's stars clear too. Not saved: a reload starts clean. Tested by
+script: 3 stars from two deaths, enforcers costing Bulwark 30 health in 8 s, a lost search after 15 s,
+Forge outflying them on afterburner in 26 s, and three stuns on foot fining ◈360.
+
 **The second wave of heroes** (added the same day; each also has a Higgsfield portrait):
 
 | Hero | Light / heavy | 1 | 2 | 3 | R |
