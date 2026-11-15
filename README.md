@@ -640,6 +640,15 @@ it and a route is set. Until you come they smash shopfronts and scare people off
 they fight (brutes punch and slam, gunners keep their distance and shoot, drones circle overhead).
 Stopping a raid pays ◈250 plus ◈50 a robot. A raid you leave alone ends after a while.
 
+**Raids on busy streets.** A raid picks one of the busiest street corners or bus stops 60-380 m
+away (by how many residents are outdoors within 40 m), so it lands in a crowd; only when the streets
+are empty does it fall back to any stop. From the plaza at midday the sites had 10-11 people nearby
+(the old choice: none), and even at 3 a.m. one had 7. The crowd runs from the robots as they smash
+the street. Your own blows that catch bystanders during a raid or boss fight only knock them over:
+nobody goes down, there is no patrol and no wanted star, just a little standing and a word from them
+(one gentle warning the first time). When you stop the raid, everyone within 50 m turns to you,
+waves and thanks you, and your standing rises with how many saw it.
+
 **Kurozan, the Storm Dragon:** after two raids (or any time from the Hall or the app) you can face
 him at Skyhaven Stadium. A giant warlord with an iron club (slam, sweep, thrown rocks, a charge, a
 roar); at half health he turns into a flying dragon (storm breath, fireballs, dives: hit it while

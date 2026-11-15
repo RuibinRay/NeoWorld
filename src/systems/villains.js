@@ -612,8 +612,32 @@ export class Villains {
       R.far = d > 900 ? (R.far || 0) + dt : 0; if (R.far > 60) { G.ui.toast(`The crew at ${R.name} got away with it. Another raid will come.`, 'info'); this.endRaid(true); }
     } else this.beacon.visible = false;
   }
+  // Where the crew strikes: a street (or bus stop) 60-380 m away where people are out, so the raid is in
+  // the middle of a crowd; one of the busiest few at random. When the streets are empty (late at night),
+  // the old choice: a bus stop, or any street corner.
   pickSite() {
-    const P = G.player.pos, stops = (G.metro && G.metro.bus ? G.metro.bus.lines.flatMap((l) => l.stops) : []).filter((s) => { const d = Math.hypot(s.x - P.x, s.z - P.z); return d > 110 && d < 380 && !(G.districts.waterAt(s.x, s.z, (s.y || 0) + 0.1)); });
+    const busy = this.busySite(); if (busy) return busy;
+    return this.quietSite();
+  }
+  busySite() {
+    if (!G.npcs) return null;
+    const P = G.player.pos, out = G.npcs.list.filter((n) => !n.inside && n.body === 'humanoid' && !n.zone && !n.hold);
+    if (out.length < 6) return null;
+    const count = (x, z) => { let c = 0; for (const n of out) if ((n.pos.x - x) ** 2 + (n.pos.z - z) ** 2 < 40 * 40) c++; return c; };
+    const inRange = (x, z) => { const d = Math.hypot(x - P.x, z - P.z); return d > 60 && d < 380 && !(G.districts.waterAt(x, z, 0.1)); };
+    const stops = G.metro && G.metro.bus ? G.metro.bus.lines.flatMap((l) => l.stops) : [];
+    const cands = [...stops.filter((s) => inRange(s.x, s.z)).map((s) => ({ x: s.x, y: s.y, z: s.z, stop: s })), ...G.npcs.street.filter((n) => inRange(n.x, n.z)).map((n) => ({ x: n.x, y: n.y, z: n.z }))]
+      .map((c) => ({ ...c, n: count(c.x, c.z) })).filter((c) => c.n >= 5).sort((a, b) => b.n - a.n);
+    if (!cands.length) return null;
+    const c = cands[Math.floor(Math.random() * Math.min(4, cands.length))];
+    // name it after the nearest stop: "Avenue 13 & Q Street" itself, or "near" it
+    let name = 'Meridian Quarter', area = 'Meridian';
+    if (c.stop) { name = c.stop.name; area = c.stop.area || 'Midtown'; }
+    else { let best = null, bd = 1e9; for (const s of stops) { const d = (s.x - c.x) ** 2 + (s.z - c.z) ** 2; if (d < bd) { bd = d; best = s; } } if (best && bd < 400 * 400) { name = `near ${best.name}`; area = best.area || 'Midtown'; } }
+    return { pos: V().set(c.x, c.y || G.colliders.groundAt(c.x, c.z, 5, 5, 0.3), c.z), name, area, crowd: c.n };
+  }
+  quietSite() {
+    const P = G.player.pos, stops =(G.metro && G.metro.bus ? G.metro.bus.lines.flatMap((l) => l.stops) : []).filter((s) => { const d = Math.hypot(s.x - P.x, s.z - P.z); return d > 110 && d < 380 && !(G.districts.waterAt(s.x, s.z, (s.y || 0) + 0.1)); });
     if (stops.length) { const s = stops[Math.floor(Math.random() * stops.length)]; return { pos: V().set(s.x, s.y || G.colliders.groundAt(s.x, s.z, 5, 5, 0.3), s.z), name: s.name, area: s.area || 'Midtown' }; }
     const nodes = G.npcs ? G.npcs.street.filter((n) => { const d = Math.hypot(n.x - P.x, n.z - P.z); return d > 60 && d < 300; }) : [];
     const n = nodes.length ? nodes[Math.floor(Math.random() * nodes.length)] : { x: 30, y: 0.15, z: -60 };
@@ -627,7 +651,7 @@ export class Villains {
     let s = this.pickSite();
     if (type === 'defend' && G.orbital) { const x = G.orbital.tx + 22, z = G.orbital.tz + 22; s = { pos: V().set(x, G.colliders.groundAt(x, z, 20, 30, 0.5), z), name: 'the orbital lift', area: 'Aeroport' }; }
     const n = type === 'defend' ? 5 : 5 + Math.floor(Math.random() * 3);
-    this.raid = { owner, type, site: s.pos, name: s.name, area: s.area, n, queue: [], foes: [], spawned: false, t: 0, wave: 1, label: { smash: 'Smashing up the street', rescue: 'Holding people in cages', heist: 'Robbing an armoured truck', defend: 'Attacking the uplink' }[type] };
+    this.raid = { owner, type, site: s.pos, name: s.name, area: s.area, crowd: s.crowd || 0, n, queue: [], foes: [], spawned: false, t: 0, wave: 1, label: { smash: 'Smashing up the street', rescue: 'Holding people in cages', heist: 'Robbing an armoured truck', defend: 'Attacking the uplink' }[type] };
     this.queueWave(this.raid, n);
     if (owner === 'vektor' || owner === 'shade') this.raid.queue.push({ kind: owner === 'vektor' ? 'vcore' : 'shade', pos: s.pos.clone().add(V().set(0, 0, -6)) });
     const V2 = VILLAINS[owner], what = { smash: 'smashing up', rescue: 'holding people in energy cages at', heist: 'robbing an armoured truck at', defend: "attacking the orbital lift's uplink at" }[type];
@@ -650,10 +674,26 @@ export class Villains {
   completeRaid() {
     const R = this.raid, bonus = (R.freed || 0) * 100 + (R.truck && R.truck.done === 'stopped' ? 300 : 0) + (R.type === 'defend' ? 400 : 0), pay = 250 + R.n * 50 + bonus; this.st.raids++; G.state.done.heroRaid = true;
     G.economy.earn(pay, `stopping the raid at ${R.name}`); if (G.heroes) { G.heroes.addXp(100); G.heroes.raidDone(R); } G.ui.flash('RAID STOPPED', 2); sting('win');
+    this.cheer(R);
     this.endRaid(false); this.nextRaid = (80 + Math.random() * 60) * G.heroes.diff.raid;
     if (R.type === 'rescue' && R.freed) G.ui.toast(`${R.freed} resident${R.freed === 1 ? '' : 's'} freed.`, 'good');
     if (this.st.raids === 2) G.ui.toast('Kurozan has noticed you. He is waiting at Skyhaven Stadium: face him from the Hero Hall or the Heroes app.', 'good');
     if (G.metro) G.metro.route = null;
+  }
+  // the street you saved: everyone close by turns to you, waves and thanks you; your standing rises with
+  // how many saw it
+  cheer(R) {
+    if (!G.npcs) return;
+    const P = G.player.pos; let said = 0, n = 0;
+    for (const r of G.npcs.near) {
+      if (r.inside || r.body !== 'humanoid' || r.hold || r.converse || r.dead || (r.react && (r.react.fall || r.react.fight))) continue;
+      if ((r.pos.x - R.site.x) ** 2 + (r.pos.z - R.site.z) ** 2 > 50 * 50) continue;
+      if (r.doing || r.path || r.direct || r.seat) r.interrupt();
+      r.react = { anim: 'wave', t: 3 + Math.random() * 2 }; r.faceYaw = Math.atan2(P.x - r.pos.x, P.z - r.pos.z); r.feel(r.android ? 'neutral' : 'happy', 8);
+      const m = r.mem; m.rep = clamp(m.rep + 4, -100, 100); n++;
+      if (r.isNear && said < 3 && Math.random() < 0.6) { said++; G.ui.say(r, r.child ? 'That was so cool!' : r.android ? 'Threat cleared. Gratitude logged.' : ['Thank you!', 'You saved our street!', 'Is it over? It\'s over!', 'Did you see that?'][Math.floor(Math.random() * 4)], 2.6); }
+    }
+    if (n) { G.state.standing = clamp(G.state.standing + Math.min(6, 1 + n * 0.3), -100, 100); G.ui.toast(`${n} resident${n === 1 ? '' : 's'} saw you save the street.`, 'good'); }
   }
   endRaid(abandon) {
     if (!this.raid) return;
