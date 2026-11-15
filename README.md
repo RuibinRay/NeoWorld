@@ -918,6 +918,21 @@ boss fight. 5 seconds each, 0.65–0.9 MB; loaded in the background when you bec
 start at once. Same fallback to the still picture. All five clips together are about 4 MB, in
 `public/video/`. Their cost shows only in the Higgsfield console.
 
+**Hero card clips** (Higgsfield API, Hailuo 2.3 image-to-video, 768p): every hero's portrait brought
+to life, `public/video/hero-<id>.mp4` (768×1024, 5.9 s each, 7.4 MB for all eleven). Strand lowers
+the arm holding his line and steps toward the camera; Forge hovers over the bay, thrusters flaring;
+Raiko's blade floods the rainy neon street with violet light; Sable steps forward as the hounds raise
+their heads (the pack grows from four to about seven: an AI quirk, kept); Rook finishes a stretch
+punch, bounces and grins; Brann lifts the hammer into the storm; Bulwark roars as his veins blaze;
+Warden raises the shield; Kitsu's wind sphere swells as the camera closes in; Trine turns her blades
+in falling blossoms; Ember walks forward, fists burning. A clip plays over the portrait on the card
+shown when you become that hero (the card then stays up 3.4 s instead of 2.2), and the clips of the
+heroes you can pick load while the Hero Hall's hero list is open, so they start at once. Made with
+`node tools/higgsfield.mjs video <image-url> "<prompt>" out.mp4`, from each portrait's address in
+this public repository (the API takes the picture as a public URL), all eleven at once in about two
+minutes; then re-encoded (H.264, CRF 27, no sound) to 0.4-1 MB each. `HERO_CLIPS` in
+`systems/heroes.js` lists the heroes that have one.
+
 **Tested:** the title clip loading and looping; Kurozan's, Shade's, Vektor's and the dragon's
 clips playing on their cards (with reduced motion switched off in the test tab only). No errors.
 

@@ -48,7 +48,10 @@ const SIG = {
 // Which Hero Hall missions (The Three Storms) must be done before a hero can be chosen. A hero you have
 // already played stays unlocked, and code 7103 unlocks them all.
 const UNLOCK = { strand: 0, forge: 0, raiko: 0, sable: 1, rook: 1, brann: 2, bulwark: 2, warden: 3, kitsu: 3, trine: 4, ember: 4 };
-const COPY_NAMES ={ quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', rockets: 'Rocket swarm (drone)', storm: 'Storm breath (Kurozan)', club: 'Club quake (Kurozan)' };
+// Heroes with a Higgsfield clip (public/video/hero-<id>.mp4): it plays over the portrait on the card shown
+// when you become them, which then stays up a little longer
+const HERO_CLIPS = new Set(['strand', 'forge', 'raiko', 'sable', 'rook', 'brann', 'bulwark', 'warden', 'kitsu', 'trine', 'ember']);
+const COPY_NAMES ={quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', rockets: 'Rocket swarm (drone)', storm: 'Storm breath (Kurozan)', club: 'Club quake (Kurozan)' };
 
 export class Heroes {
   constructor() {
@@ -108,6 +111,12 @@ export class Heroes {
   unlocked(id) { const s = this.st; return !!(G.state.perks && G.state.perks.heroes) || !!s.used[id] || (s.hm || 0) >= (UNLOCK[id] || 0); }
   lockText(id) { const n = UNLOCK[id] || 0; return `Unlocks after hero mission ${n}: ${MISSIONS[n - 1].name}`; }
   heroMenu(pick = (id) => this.become(id), title = 'Choose a hero') {
+    // load the card clips of the heroes you can pick while you choose, so the one you pick starts at once
+    // (about 0.7 MB each; locked heroes' clips load when they unlock)
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.heroClips = this.heroClips || new Map();
+      for (const id of HERO_CLIPS) if (this.unlocked(id) && !this.heroClips.has(id)) { const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = `${import.meta.env.BASE_URL}video/hero-${id}.mp4`; v.load(); this.heroClips.set(id, v); }
+    }
     const card = (id) => { const h = HEROES[id], img = artUrl(`hero-${id}.jpg`), lv = this.level(id), open = this.unlocked(id); return `<div class="hero-row" style="${open ? '' : 'opacity:0.45;filter:grayscale(1)'}">${img ? `<img src="${img}" alt="" style="border-color:${h.color}">` : ''}<p><b style="color:${h.color}">${open ? '' : '🔒 '}${h.name}</b> <span style="color:var(--dim)">· ${h.title} · ${open ? `level ${lv}` : 'locked'}</span><br><small>${open ? h.blurb : this.lockText(id)}</small></p></div>`; };
     const open = HERO_IDS.filter((id) => this.unlocked(id)).length;
     G.ui.openMenu({ title, who: `Hero Hall · ${open} of ${HERO_IDS.length} heroes unlocked`, wide: true, html: HERO_IDS.map(card).join(''),
@@ -153,7 +162,7 @@ export class Heroes {
     G.input.keys.clear();
     this.st.used[id] = true; G.state.done['hero:' + id] = true;
     if (o.swap) { G.ui.flash(H.name.toUpperCase(), 0.9); this.ball(this.centre(), 4, { dmg: 20, knock: 9, up: 3, color: H.color }); G.fx.ring(this.centre(), H.color, 0.4, 5, 0.4); }
-    else if (!o.keep) { this.showCard(artUrl(`hero-${id}.jpg`), H.name, H.title, H.color); G.ui.toast(`You are ${H.name}, ${H.title}. Left click / Z and right click / X attack, 1 2 3 are powers, R the ultimate. All the moves: the Heroes app on your phone.`, 'good'); }
+    else if (!o.keep) { this.showCard(artUrl(`hero-${id}.jpg`), H.name, H.title, H.color, HERO_CLIPS.has(id) ? 3.4 : 2.2, false, HERO_CLIPS.has(id) ? `hero-${id}` : null); G.ui.toast(`You are ${H.name}, ${H.title}. Left click / Z and right click / X attack, 1 2 3 are powers, R the ultimate. All the moves: the Heroes app on your phone.`, 'good'); }
     if (G.audio) { G.audio.tone(330, 0.5, 0.06, 'sawtooth', null, 0.02, 2); G.audio.tone(660, 0.6, 0.04, 'triangle', null, 0.05, 1.5); }
     if (G.fx) { G.fx.ring(this.centre(), H.color, 0.4, 5, 0.6); G.fx.spark(this.centre(), H.color, 30, 7, 0.6, 0.16); }
     this.hud.style.display = 'block'; this.cross.style.display = 'block';
