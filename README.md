@@ -665,7 +665,12 @@ held fire dealt 156 damage with the crosshair 8° off a robot, none with it 25°
 **Moving as the other heroes.** Forge flies where the camera looks; Shift is an afterburner that
 spools up to 62 m/s and sets off a sonic boom past 45 m/s, the armour banks into turns and pitches
 into dives, the boots leave contrails, and a fast arrival is a three-point landing with a shockwave.
-Brann's hammer flight lasts 2.4 s and is steered with the camera (Space lifts), the hammer whirling
+In flight the whole suit lines up with where it is going: straight as a board in a cruise, head-down
+in a dive, rocket-straight going up, and upright when hovering, arms out with the palms to the
+ground and one knee bent. The afterburner sweeps the arms back and locks the legs. Letting go of
+forward at speed is a flare: feet thrown forward, palms out to stop. Turns roll the body about its
+spine. Steady flames burn from the boot soles and palms, longer on afterburner, and go out when
+you land. Brann's hammer flight lasts 2.4 s and is steered with the camera (Space lifts), the hammer whirling
 overhead, and he flies on with his speed when it ends. Rook's rocket snaps him to a point and slings
 him on past it (up a wall, if he grabbed one). Bulwark's leap reaches 80 m and lands where you aim
 (the air no longer slows it). Kitsu has a second jump in the air. Aiming at the open street now lands

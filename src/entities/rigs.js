@@ -368,6 +368,24 @@ export function animateRig(r, dt, anim, speed = 0) {
     case 'breathe': T.headX = 0.25; T.lean = 0.3; T.aL = T.aR = -0.5; T.eL = T.eR = -1.3; T.aLz = 0.3; T.aRz = -0.3; T.lL = -0.4; T.kL = 0.4; k = 16; break;
     case 'fly': T.lean = 1.3; T.headX = -1.0; T.aL = T.aR = 0.35; T.aLz = 0.28; T.aRz = -0.28; T.eL = T.eR = -0.1; T.lL = T.lR = 0.12; T.kL = 0.15; T.kR = 0.25; k = 7; break;
     case 'hover': T.lean = 0.08 + Math.sin(t * 2) * 0.03; T.aLz = 0.45; T.aRz = -0.45; T.eL = T.eR = -0.55; T.lL = -0.25; T.kL = 0.45; T.lR = 0.08; T.kR = 0.2; k = 8; break;
+    // ---- flying armour (Forge). The whole body is turned by the root (Hero Mode sets the tilt to the flight
+    // path); these poses are relative to it. The thrusters fire out of the palms and the boot soles.
+    case 'jetHover': {   // upright, arms down and out with the palms to the ground, one knee bent, holding station
+      const a = Math.sin(t * 2.1), b = Math.sin(t * 1.7 + 1);
+      T.lean = 0.04 + a * 0.02; T.headX = 0.04; T.aL = T.aR = -0.1; T.aLz = 0.6 + a * 0.05; T.aRz = -0.6 - b * 0.05; T.eL = T.eR = -0.2;
+      T.lL = -0.24; T.kL = 0.46 + b * 0.04; T.lR = 0.04; T.kR = 0.14; T.hipsY = 0.93; k = 7; break;
+    }
+    case 'jetCruise': {   // straight as a board along the flight path, arms back by the sides, head up to see ahead
+      const s = Math.sin(t * 3.2);
+      T.lean = 0.06; T.headX = -1.0; T.aL = T.aR = 0.2; T.aLz = 0.22 + s * 0.02; T.aRz = -0.22 + s * 0.02; T.eL = T.eR = -0.1;
+      T.lL = 0.05 + s * 0.03; T.lR = 0.09 - s * 0.03; T.kL = 0.08; T.kR = 0.16; k = 8; break;
+    }
+    case 'jetBoost':   // the afterburner: arms swept back and tight, legs locked together
+      T.lean = 0.03; T.headX = -1.05; T.aL = T.aR = 0.3; T.aLz = 0.1; T.aRz = -0.1; T.eL = T.eR = -0.04; T.lL = T.lR = 0.03; T.kL = 0.03; T.kR = 0.06; k = 6; break;
+    case 'jetRise':   // straight up like a rocket, arms down at the sides, looking up
+      T.lean = 0; T.headX = -0.45; T.aL = T.aR = 0.06; T.aLz = 0.15; T.aRz = -0.15; T.eL = T.eR = -0.04; T.lL = T.lR = 0.02; T.kL = 0.04; T.kR = 0.08; k = 10; break;
+    case 'jetBrake':   // hard stop: feet swung forward, palms pushed out ahead to fire against the way you were going
+      T.lean = -0.12; T.headX = 0.22; T.aL = T.aR = -1.1; T.aLz = 0.36; T.aRz = -0.36; T.eL = T.eR = -0.08; T.lL = -0.55; T.lR = -0.32; T.kL = 0.62; T.kR = 0.34; k = 11; break;
     case 'swing': T.aR = -2.95; T.eR = -0.05; T.aRz = 0.1; T.aL = -0.5; T.eL = -0.6; T.lL = -0.75; T.kL = 1.1; T.lR = 0.25; T.kR = 0.7; T.lean = 0.15; T.headX = -0.25; k = 10; break;
     case 'webswing': {
       // Strand on a line: the hand on the anchor's side holds it overhead, the other reaches out; the legs
