@@ -591,6 +591,25 @@ on a 6 s run down a Midtown street holding Space chains five lines and covers 15
 releases covers 206 m. The feel is sold by the camera (it trails further behind and the view widens
 by up to 16° with speed), streaks and wind, and the body: it hangs along the line, the hand on the
 anchor's side holds it, and the legs trail, tuck through the bottom and kick out on the way up.
+Lines prefer arcs that swoop down to about 5 m over the street, so you swing low between the towers
+instead of creeping ever higher (with timed releases a run down a street stays between 2 and 18 m).
+A swing that goes on longer than 2.2 s hands over to the next line, so it can never curl round its
+anchor like a tetherball, and W keeps a wall run going only for its first 1.6 s, so brushing a 200 m
+tower does not run you up all of it. The first time you are Strand, a card explains the four moves.
+
+**The Swing Course** (`systems/swingcourse.js`): twelve big rings (14 m across) through the downtown
+streets, starting at a sign on the street at (-96, -170), north of the park. It runs east along the
+start street, south, west one block and north to the finish, about 570 m; these are the streets near
+the start with towers close on both sides, so there is nearly always a line to take (the open plaza
+further west along z = -60 is left out). The next ring is green, the rest blue, the finish gold. The
+clock starts at the first ring; rings count when you cross them in the right direction, with a pass
+zone a little larger than the drawn ring, as game rings forgive a near miss. The rings sit at swing
+height (8-18 m), set ring by ring from test runs, and the first ring after each corner is 35 m into
+the new street, lower, so you have a swing or two to line up. Over 3.5 s back on the street, or 160 m
+off course, ends the run. Gold under 28 s (◈400), silver under 40 s (◈250), bronze under 60 s (◈140),
+plus hero experience; the best time is kept. Tested with a scripted Strand that steers at each ring,
+lets go on the way up, dives when well above a ring and web-zips round corners: 11 of 12 runs
+finished, in 23.8 to 94 s (median 35 s), with no landings mid-course in most runs.
 
 **Unlocking heroes.** Strand, Forge and Raiko are open from the start; the others unlock two at a
 time as you finish the Hero Hall missions (The Three Storms): Sable and Rook after mission 1, Brann
@@ -631,9 +650,16 @@ leaves until next time.
 settle; strong hits start fires with smoke. A city repair drone comes to each damaged spot after
 45 s, welds, and the damage and debris are gone. Buildings never collapse (at this map size that
 would cost far too much). **Residents** caught by a hit are knocked over backwards, lie a moment,
-get up and run; there are no injuries shown. Hitting residents yourself costs standing with them
-and their friends, and the Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for
-damaging property outside a fight with villains).
+get up and run. A hero's own hits hurt them: an adult has 60 health (an android 80), and one who
+takes enough goes down for good and lies still (no blood) until the city medics take them away
+after 20 s; they are home again the next day, so nobody's story or schedule is lost. **Children are
+never hurt this way**: whatever hits them, they are only knocked over, and they always run. About a
+quarter of adults are fighters: hit one, or hurt someone near one, and they come at you throwing
+punches (5 damage each) until you knock them down or get more than 35 m away. Everyone else nearby
+panics and runs, further when someone has gone down. Villains' hits only ever knock people over.
+Hitting residents costs standing with them and their friends (much more when they go down), and the
+Aegis-12 patrol comes for you (◈120 for attacking residents, ◈90 for damaging property outside a
+fight with villains).
 
 **The second wave of heroes** (added the same day; each also has a Higgsfield portrait):
 

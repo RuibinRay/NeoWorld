@@ -1,7 +1,9 @@
 // The combat core shared by heroes and villains: who can be hit, hit shapes (a sphere, a cone in
 // front of you, a sweep along a line, a ray), knockback, the hero's health, and what a hit does to
-// the street: residents are knocked down (no injuries shown: they tumble, get up and run), and
-// the Aegis-12 patrol takes note when it is a resident you hit.
+// the street: residents are knocked down; a hero's hits hurt them, and an adult who takes enough goes
+// down for good (no blood: they lie still until the medics take them, home again the next day).
+// Children are only ever knocked over. Some residents fight back, the rest run, and the Aegis-12
+// patrol takes note when it is a resident you hit.
 //
 // A target: { pos (feet), h (height of its middle above pos), r (radius), team: 'villain',
 //             alive, name, hit(dmg, dir, o), flying? }
@@ -70,16 +72,28 @@ export class Combat {
   }
   // A resident caught in a fight: knocked over, then up and away. If the hero did it, it costs
   // standing with them and their friends, and the patrol hears about it.
+  // A resident caught by a hit. The hero's hits hurt (villains' only knock people over): an adult who
+  // takes enough goes down for good (the medics take them, and they are home again tomorrow); children
+  // are only ever knocked over. The street reacts: fighters come at the hero, everyone else runs.
   knockResident(npc, dir, o) {
-    const p = (o.knock || 4) * 0.8;
+    const p = (o.knock || 4) * 0.8, wasDead = !!npc.dead;
+    const killed = !o.byVillain && !wasDead && npc.harm((o.dmg || 4) * (G.heroes && G.heroes.on ? G.heroes.dmgMul : 1));
     npc.knock(dir.x * p, dir.z * p, Math.max(2.5, (o.up || 0) + p * 0.35), o.kind === 'web' ? 2.5 : 0);
-    if (o.byVillain) return;
+    if (o.byVillain || wasDead) return;
+    npc.provoked = G.elapsed;
     this.civHits++;
-    const m = npc.mem; m.rep = clamp(m.rep - 12, -100, 100); G.state.standing = clamp(G.state.standing - 2, -100, 100);
-    G.npcs.gossip(npc, -10, 'hit them in the street');
-    if (npc.isNear) G.ui.say(npc, npc.android ? 'Impact logged. Reporting to Civic Patrol.' : ['Ow! What was that for?', 'Hey! I live here!', 'Somebody call the patrol!'][Math.floor(Math.random() * 3)], 2.6);
+    const m = npc.mem; m.rep = clamp(m.rep - (killed ? 40 : 12), -100, 100); G.state.standing = clamp(G.state.standing - (killed ? 8 : 2), -100, 100);
+    G.npcs.gossip(npc, killed ? -30 : -10, killed ? 'hurt them badly in the street' : 'hit them in the street');
+    if (G.npcs.panic) G.npcs.panic(npc.pos, npc, killed);
+    if (killed) {
+      this.civDown = (this.civDown || 0) + 1; G.state.stats.civDown = (G.state.stats.civDown || 0) + 1;
+      if (G.events) G.events.report('assault', 4);
+      if (this.civDown === 1) G.ui.toast(`${npc.name} is down. The city medics will take them away; they will be home again tomorrow. The Aegis-12 patrol is on its way.`, 'warn');
+      return;
+    }
+    if (npc.isNear) G.ui.say(npc, npc.android ? 'Impact logged. Reporting to Civic Patrol.' : npc.child ? ['Ow! Stop it!', 'I\'m telling!', 'Leave me alone!'][Math.floor(Math.random() * 3)] : npc.fighter ? ['Oh, you want a fight?', 'Big mistake.', 'Right, that\'s it!'][Math.floor(Math.random() * 3)] : ['Ow! What was that for?', 'Hey! I live here!', 'Somebody call the patrol!'][Math.floor(Math.random() * 3)], 2.6);
     if (G.events) G.events.report('assault', 1.6);
-    if (this.civHits === 1) G.ui.toast('That was a resident, not a villain. Hitting people costs you standing and brings the Aegis-12 patrol.', 'warn');
+    if (this.civHits === 1) G.ui.toast('That was a resident, not a villain. Hitting people costs you standing and brings the Aegis-12 patrol. Some will fight back.', 'warn');
   }
   // A villain's attack: the hero (if inside the shape) and any residents in the way. Returns true if the hero was hit.
   villainStrike(shape, o = {}) {

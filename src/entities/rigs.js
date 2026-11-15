@@ -320,6 +320,7 @@ export function animateRig(r, dt, anim, speed = 0) {
     }
     case 'snack': { const b = Math.max(0, Math.sin(t * 2.6)); T.aR = -0.8 - 0.5 * b; T.eR = -1.5 - 0.7 * b; T.headX = 0.12 * b; T.aL = -0.2; T.eL = -0.9; break; }
     case 'taichi': { const a = Math.sin(t * 0.9), b = Math.cos(t * 0.9); T.hipsY = 0.86 + a * 0.03; T.kL = T.kR = 0.35; T.lL = T.lR = -0.2; T.aL = -0.9 + a * 0.5; T.aR = -0.9 - a * 0.5; T.aLz = 0.5 + b * 0.4; T.aRz = -0.5 + b * 0.4; T.eL = T.eR = -0.4; T.twist = a * 0.3; T.lean = 0; k = 5; break; }
+    case 'down': T.lL = 0.05; T.lR = -0.08; T.kL = 0.15; T.kR = 0.3; T.aLz = 0.95; T.aRz = -0.85; T.aL = -0.2; T.aR = 0.1; T.eL = T.eR = -0.35; T.headX = 0.15; T.headY = 0.5; T.lean = 0; k = 6; break;   // flat on their back, still (the root is tipped over)
     case 'faint': T.hipsY = 0.34; T.lL = T.lR = -1.45; T.kL = T.kR = 0.25; T.lean = 0.5; T.aL = T.aR = 0.2; T.eL = T.eR = -0.2; T.headX = 0.5; k = 6; break;
     case 'board': T.hipsY = 0.85 + Math.sin(t * 3) * 0.01; T.twist = 0.35; T.kL = 0.5; T.kR = 0.45; T.lL = -0.5; T.lR = 0.35; T.aLz = 0.55; T.aRz = -0.7; T.eL = T.eR = -0.3; T.lean = 0.1 + Math.min(0.22, speed * 0.016); break;
     case 'swim': { const s = Math.sin(t * 2.6); T.lean = 0.5; T.aLz = 0.9 + s * 0.7; T.aRz = -0.9 - s * 0.7; T.aL = T.aR = -1.2; T.eL = T.eR = -0.5 - s * 0.4; T.lL = s * 0.5; T.lR = -s * 0.5; T.kL = T.kR = 0.5; T.headX = -0.35; break; }
