@@ -152,6 +152,16 @@ photoreal characters and animation.
 **Getting around the new parts**
 
 - **Roads:** every street is drivable. Junctions have signals; avenue traffic stops at red, queues, brakes and honks for you.
+- **Busier streets:** the avenues carry a pool of 72 vehicles around you (was 38), placed from 70 m
+  away and weighted toward the near streets; closer than 200 m only where the camera is not looking,
+  so no car ever pops into sight. Meridian's own streets have two cars round each block, nine on the
+  outer avenue and five on each cross street (was one, three and two), spread evenly so they do not
+  queue. On the downtown street by the Swing Course there are now 6-9 vehicles within 120 m (was 0-2),
+  and 40-50 within 250 m; traffic costs under 1 ms a frame.
+- **The park lawn** is a soft, low-contrast grass (broad light and dark patches, thin blades in close
+  shades, lightly blurred) instead of a tile of bright and dark specks that read as static.
+- **The far skyline** (620 simple towers 1.7-3.4 km out, past the edge of the street grid) is a
+  backdrop meant to be seen from the city; the gaps between those towers have no streets or people.
 - **Route on the map:** open the map (`M` or the phone's Map app) and click anywhere to set a route along the streets; a blue line shows on the map and minimap. Click its end again to clear it.
 - **Buses:** M1 Park and Beach, M2 Harbor, M3 Heights. Wait at a stop shelter and press `E` when the bus is standing there. Any shelter shows the lines and times.
 - **Ferry:** Tidewater Port → Beacon Isle → Solara pier → Port. Board from the jetty when it is alongside.
@@ -185,7 +195,7 @@ photoreal characters and animation.
 **Tested (by script, driving the real controls)**
 
 - Every street segment (1,003) probed in both lanes for anything solid: clear. Routes from Meridian to the beach, the port, the Heights and the east edge: clear.
-- Avenue traffic: 38 pods stayed on streets, stopped at red. Bus: waited at a stop, boarded, rode to the next stop, got off there. Ferry: Port to Beacon Isle, got off on the jetty.
+- Avenue traffic: 38 pods (now 72) stayed on streets, stopped at red. Bus: waited at a stop, boarded, rode to the next stop, got off there. Ferry: Port to Beacon Isle, got off on the jetty.
 - Bench, vending machine, litter job (ten pieces, paid), parcel run (paid), rowboat, jet-ski with a full bay run, big wheel (one turn, back on the pier), volleyball, free throws, pier fishing, all five shop counters, buying the townhouse and using its kitchen and bed.
 - Autopilot to the Solara Bay pad and to the sea platform landed with no damage.
 - One full game day across 15 places in every new area: no errors. 319 tiles built and freed over 50 trips: geometry and texture counts unchanged (no leak).
