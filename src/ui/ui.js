@@ -315,6 +315,7 @@ export class UI {
       if (G.metro) for (const o of G.metro.traffic.pods) if (o.on) g.fillRect(X(o.x) - 2, Y(o.z) - 2, 4, 4);
       if (G.npcs) { g.fillStyle = '#d7e3ee'; for (const n of G.npcs.near) if (!n.inside) g.fillRect(X(n.pos.x) - 1.5, Y(n.pos.z) - 1.5, 3, 3); }
     }
+    if (G.hubs) for (const h of G.hubs.list) { g.globalAlpha = 0.6; g.fillStyle = h.color; g.fillRect(X(h.cx - 37), Y(h.cz - 37), Math.max(5, 74 * k), Math.max(5, 74 * k)); g.globalAlpha = 1; }   // the Midtown squares
     // the maglev lines: 7 round Meridian, 9 out to the coast
     for (const [line, colr] of [[G.city.train && G.city.train.path, 'rgba(127,233,255,0.75)'], [G.coastLine && G.coastLine.path, 'rgba(255,179,71,0.85)']]) {
       if (!line) continue; g.strokeStyle = colr; g.lineWidth = full ? 2.5 : 2; g.setLineDash([6, 4]); g.beginPath();
@@ -330,7 +331,7 @@ export class UI {
     if (G.garage && G.garage.parked) { g.fillStyle = '#c98a84'; for (const e of G.garage.parked) { g.save(); g.translate(X(e.x), Y(e.z)); g.rotate(Math.PI - e.yaw); g.fillRect(-3, -5, 6, 10); g.restore(); } }   // your other vehicles, parked
     g.fillStyle = '#ff5a4d'; g.save(); g.translate(X(car.pos.x), Y(car.pos.z)); g.rotate(Math.PI - car.yaw); g.fillRect(-3.5, -6, 7, 12); g.restore();
     if (G.teleport) for (const m of G.teleport.markers()) { const x = X(m.x), y = Y(m.z); g.fillStyle = m.color; g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 6, y); g.lineTo(x, y + 7); g.lineTo(x - 6, y); g.closePath(); g.fill(); }
-    const marks = G.jobs ? [...G.jobs.markers(), ...(G.drone ? G.drone.markers() : []), ...(G.world ? G.world.markers() : []), ...(G.street ? G.street.markers() : []), ...(G.happen ? G.happen.markers() : []), ...(G.streetTaxi ? G.streetTaxi.markers() : []), ...(G.story ? G.story.markers() : []), ...(G.incidents ? G.incidents.markers() : []), ...(G.villains ? G.villains.markers() : [])] : [];
+    const marks = G.jobs ? [...G.jobs.markers(), ...(G.drone ? G.drone.markers() : []), ...(G.world ? G.world.markers() : []), ...(G.street ? G.street.markers() : []), ...(G.hubs ? G.hubs.markers() : []), ...(G.happen ? G.happen.markers() : []), ...(G.streetTaxi ? G.streetTaxi.markers() : []), ...(G.story ? G.story.markers() : []), ...(G.incidents ? G.incidents.markers() : []), ...(G.villains ? G.villains.markers() : [])] : [];
     for (const m of marks) {
       let mx = X(m.x), my = Y(m.z); const dx = mx - S / 2, dy = my - S / 2, d = Math.hypot(dx, dy), lim = S / 2 - 10;
       if (d > lim) { mx = S / 2 + (dx / d) * lim; my = S / 2 + (dy / d) * lim; }
@@ -346,12 +347,13 @@ export class UI {
       for (const d of G.districts.list) g.fillText(d.name.toUpperCase(), X(d.x), Y(d.z - 198));
       g.fillStyle = '#9fc7a8'; g.fillText('GRAND ARBOR PARK', X(720), Y(720)); g.fillText('ARBOR HEIGHTS', X(-1020), Y(-1090)); g.fillText('SKYHAVEN GREEN', X(640), Y(-430));
       g.fillStyle = '#d9cfa8'; g.fillText('SOLARA BAY', X(810), Y(1290)); g.fillStyle = '#aab4c2'; g.fillText('TIDEWATER PORT', X(-840), Y(1290)); g.fillText('MIDTOWN', X(0), Y(330));
+      if (G.hubs) { g.font = '600 12px system-ui'; for (const h of G.hubs.list) { g.fillStyle = h.color; g.fillText(h.name, X(h.cx), Y(h.cz + 66)); } }
       g.textAlign = 'start';
     }
   }
   bigMap() {
     const S = 760, k = S / 3440, CZ = -150, T = G.teleport, here = T.gates.find((q) => T.usable(q) && q.pos.distanceToSquared(G.player.pos) < 12), can = here || (G.state.owns.beacon && G.player.state === 'walk');
-    this.openMenu({ title: 'Neo Central', who: 'White arrow: you · red: your vehicle · diamonds: transit gates · rings: landing pads · amber: shops', wide: true,
+    this.openMenu({ title: 'Neo Central', who: 'White arrow: you · red: your vehicle · diamonds: transit gates · rings: landing pads · amber: shops · coloured squares: the Midtown squares', wide: true,
       html: `<canvas id="bigmap" width="${S}" height="${S}" style="width:min(100%, calc(84vh - 200px));margin:0 auto;border-radius:6px;display:block;cursor:${can ? 'pointer' : 'default'}"></canvas><p style="margin-top:8px;color:var(--dim);font-size:12.5px">${can ? 'Click a transit gate (diamond) to travel there.' : 'Stand on your feet to travel by clicking a gate.'} Click anywhere else to set a route along the streets; click its end again to clear it.</p>`,
       options: [{ label: 'Close', onPick: () => {} }] });
     const cv = this.$('bigmap'); this.paint(cv.getContext('2d'), S, 0, CZ, k, true);

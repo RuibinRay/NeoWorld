@@ -13,7 +13,7 @@ export function defaultState() {
   return {
     name: 'Resident', wallet: 600, standing: 0,
     owns: { apartment: false, dog: false, aster: false, board: false, villa: false, jetpack: false, beacon: true, boardTune: false, jetski: false, townhouse: false, beachvilla: false },   // the phone has the gate beacon built in
-    home: { decor: {}, theme: 0, pantry: [], rent: {}, rentDay: 0 }, gates: {}, done: {}, street: { sat: false, parcels: 0, litter: 0, wheel: false },
+    home: { decor: {}, theme: 0, pantry: [], rent: {}, rentDay: 0 }, gates: {}, done: {}, street: { sat: false, parcels: 0, litter: 0, wheel: false }, hubs: { runs: 0, best: 0, seen: {} },
     picked: {}, museum: [],
     asterDay: 0,
     garage: { owned: ['wisp'], active: 'wisp', tune: {}, paint: {}, cond: {}, out: [] },   // out: vehicles parked round the city besides the one you drive
@@ -58,7 +58,7 @@ export const Save = {
   load() {
     const d = this.read(); if (!d) return false;
     const def = defaultState();
-    G.state = { ...def, ...d.state, owns: { ...def.owns, ...d.state.owns }, dog: { ...def.dog, ...d.state.dog }, best: { ...def.best, ...d.state.best }, stats: { ...def.stats, ...d.state.stats }, street: { ...def.street, ...d.state.street } };
+    G.state = { ...def, ...d.state, owns: { ...def.owns, ...d.state.owns }, dog: { ...def.dog, ...d.state.dog }, best: { ...def.best, ...d.state.best }, stats: { ...def.stats, ...d.state.stats }, street: { ...def.street, ...d.state.street }, hubs: { ...def.hubs, ...d.state.hubs, seen: { ...def.hubs.seen, ...(d.state.hubs && d.state.hubs.seen) } } };
     const sg = d.state.garage || {};
     G.state.garage = { ...def.garage, ...sg, tune: { ...sg.tune }, paint: { ...sg.paint }, cond: { ...sg.cond }, out: Array.isArray(sg.out) ? sg.out : [] };
     G.state.invest = { ...def.invest, ...d.state.invest };

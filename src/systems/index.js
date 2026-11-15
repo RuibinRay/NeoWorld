@@ -21,6 +21,7 @@ import { Teleport } from './teleport.js';
 import { Rides } from './rides.js';
 import { Games } from './games.js';
 import { Street } from './street.js';
+import { Hubs } from './hubs.js';
 import { Coast } from './coast.js';
 import { Ambient } from '../entities/ambient.js';
 import { Wrecks } from './wrecks.js';
@@ -82,6 +83,7 @@ export function initSystems() {
   G.rides = new Rides();
   G.games = new Games();
   G.street = new Street();
+  G.hubs = new Hubs();
   G.coast = new Coast();
   G.ambient = new Ambient();
   G.wrecks = new Wrecks();
@@ -145,6 +147,7 @@ export function updateSystems(dt, prof) {
   G.rides.update(dt);
   G.games.update(dt);
   G.street.update(dt);
+  G.hubs.update(dt);
   G.wrecks.update(dt);
   G.coast.update(dt, t);
   G.happen.update(dt, t);

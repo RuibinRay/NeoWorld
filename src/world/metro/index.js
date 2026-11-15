@@ -13,6 +13,7 @@ import { layoutExpo } from '../expo.js';
 import { layoutSkyline } from '../skyline.js';
 import { layoutTowers } from '../towers.js';
 import { layoutCampus } from '../campus.js';
+import { layoutHubs } from '../hubs.js';
 import { waterMaterial, shoreFoam } from '../water.js';
 import { buildMountains, mountY, inReservoir } from '../mountains.js';
 import { makeRoomKit } from './kit.js';
@@ -113,7 +114,7 @@ export function buildMetro(scene, col, city, districts, roads) {
 
   // ---- the hand-built areas: they add furniture and trees to the block layout, and fixed parts to the ground mesh ----
   const ctx = { GB, SB, col, city, block, kit, group, rooms, cache, gaps, scene, yAt };
-  const park = layoutPark(ctx), coast = layoutCoast(ctx), suburb = layoutSuburb(ctx), beachVilla = layoutBeachVilla(ctx), expo = layoutExpo(ctx), skyline = layoutSkyline(ctx), towers = layoutTowers(ctx), campus = layoutCampus(ctx);
+  const park = layoutPark(ctx), coast = layoutCoast(ctx), suburb = layoutSuburb(ctx), beachVilla = layoutBeachVilla(ctx), expo = layoutExpo(ctx), skyline = layoutSkyline(ctx), towers = layoutTowers(ctx), campus = layoutCampus(ctx), hubs = layoutHubs(ctx);
   const sea = SB.b.S.mesh(seaMat, false); sea.updateMatrix(); group.add(sea);
   const foam = shoreFoam(group, { x: 300, z: 1800, r: 46 });
   // more data caches in out-of-the-way places
@@ -196,7 +197,7 @@ export function buildMetro(scene, col, city, districts, roads) {
   const metro = {
     group, blocks, list, block, yAt, bus, xing, signals, barriers, extraCars: [], roadNear: layout.roadNear, railOpen, detailers: {}, stops, bridges, sea, stats: { blocks: list.length, shells, solids },
     signal: signalState, corner, eSeg, sSeg, areaAt,
-    park, coast, suburb, beachVilla, expo, skyline, towers, campus, rooms, landings, level: waterLevel,
+    park, coast, suburb, beachVilla, expo, skyline, towers, campus, hubs, rooms, landings, level: waterLevel,
     // the canal lies below its bridges, so only its steps are dry; elsewhere a bridge or jetty over the water is dry
     north,
     waterAt: (x, z) => z < -2290 ? inReservoir(x, z) : inCanal(x, z) ? !stairGaps.some((g) => x > g.x0 && x < g.x1 && z > g.z0 && z < g.z1) : (inSea(x, z) || inLake(x, z)) && !onIsle(x, z) && !gaps.some((g) => x > g.x0 + 1 && x < g.x1 - 1 && z > g.z0 + 1 && z < g.z1 - 1),
