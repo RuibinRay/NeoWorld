@@ -352,7 +352,7 @@ export class UI {
   bigMap() {
     const S = 760, k = S / 3440, CZ = -150, T = G.teleport, here = T.gates.find((q) => T.usable(q) && q.pos.distanceToSquared(G.player.pos) < 12), can = here || (G.state.owns.beacon && G.player.state === 'walk');
     this.openMenu({ title: 'Neo Central', who: 'White arrow: you · red: your vehicle · diamonds: transit gates · rings: landing pads · amber: shops', wide: true,
-      html: `<canvas id="bigmap" width="${S}" height="${S}" style="width:100%;border-radius:6px;display:block;cursor:${can ? 'pointer' : 'default'}"></canvas><p style="margin-top:8px;color:var(--dim);font-size:12.5px">${can ? 'Click a transit gate (diamond) to travel there.' : 'Stand on your feet to travel by clicking a gate.'} Click anywhere else to set a route along the streets; click its end again to clear it.</p>`,
+      html: `<canvas id="bigmap" width="${S}" height="${S}" style="width:min(100%, calc(84vh - 200px));margin:0 auto;border-radius:6px;display:block;cursor:${can ? 'pointer' : 'default'}"></canvas><p style="margin-top:8px;color:var(--dim);font-size:12.5px">${can ? 'Click a transit gate (diamond) to travel there.' : 'Stand on your feet to travel by clicking a gate.'} Click anywhere else to set a route along the streets; click its end again to clear it.</p>`,
       options: [{ label: 'Close', onPick: () => {} }] });
     const cv = this.$('bigmap'); this.paint(cv.getContext('2d'), S, 0, CZ, k, true);
     cv.onclick = (e) => {

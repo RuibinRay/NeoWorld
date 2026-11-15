@@ -34,7 +34,7 @@ kbd { display: inline-block; min-width: 20px; padding: 1px 6px; margin-right: 6p
 .toast.good { border-left-color: var(--ok); } .toast.warn { border-left-color: var(--warn); } .toast.pay { border-left-color: #ffd34d; }
 .toast.out { opacity: 0; transition: opacity 0.5s; }
 @keyframes tin { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
-#menu { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 92vw); max-height: 84vh; overflow: auto; padding: 18px 20px; display: none; pointer-events: auto; }
+#menu { position: absolute; z-index: 20; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 92vw); max-height: 84vh; overflow: auto; padding: 18px 20px; display: none; pointer-events: auto; }
 #menu.wide { width: min(760px, 94vw); }
 #menu h2 { margin: 0; font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 0.4px; }
 #menu .who { color: var(--c); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; margin-top: 3px; }
