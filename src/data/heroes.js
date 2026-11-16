@@ -130,6 +130,78 @@ export const HEROES = {
       ['3 Flame body', '6 s as living fire: blows pass through you, touching burns'], ['R Meteor', 'A giant fireball falls on the crosshair: 12 m wide'],
     ],
   },
+  // ---- the third wave (their powers: systems/heroes3.js) ---------------------------------------------
+  tempo: {
+    alt: { top: '#e9edf2', bottom: '#e9edf2', accent: '#ff5a3c' },
+    name: 'Tempo', title: 'lightning-fast runner', color: '#d4ff3a', hp: 140, speed: 1.5, jump: 10.5,
+    blurb: 'Runs faster than the eye can follow: up walls, across water, and through anyone in the way.',
+    look: { kind: 'human', skin: '#a56b46', hair: '#16171c', hairStyle: 13, top: '#16181d', bottom: '#16181d', accent: '#d4ff3a', outfit: 'plain', sleeves: 'long', legs: 'trousers', shoe: '#2a2f1a', height: 1.78, build: 0.92, shape: 0.3, boots: true },
+    moves: [
+      ['Light', 'A blur of punches, four to a combo'], ['Heavy', 'Whirlwind: laps round the spot you aim at, and the vortex lifts everyone inside'],
+      ['1 Bolt dash', 'A streak of lightning to the crosshair, up to 40 m, through everything in the way'], ['2 Lightning throw', 'A thrown bolt that jumps on to the three nearest villains'],
+      ['3 Phase', 'For 5 s every attack passes through you'], ['R Thunder lap', 'Strikes every villain within 32 m, lap after lap, then lightning falls on all of them'],
+      ['Shift + W', 'Rush: builds to 165 km/h. The camera steers, A / D bend the line; let go to stop'], ['Rush into a wall', 'Runs straight up it and vaults the top; Space leaps off'],
+      ['Space in a rush', 'A long leap that keeps the speed'], ['Rush over water', 'He runs across it'], ['Rush through villains', 'Bowls them over'],
+    ],
+  },
+  zenith: {
+    alt: { top: '#1d2a4a', bottom: '#1d2a4a', accent: '#ffd34d' },
+    name: 'Zenith', title: 'sun-powered guardian', color: '#ffc93a', hp: 210, speed: 1.15, jump: 11,
+    blurb: 'Flies faster than sound, hits like a falling star, and burns with the light of the sun.',
+    look: { kind: 'human', skin: '#e0ac7e', hair: '#1b1d26', hairStyle: 10, top: '#f2efe6', bottom: '#f2efe6', accent: '#ffc93a', outfit: 'plain', sleeves: 'long', legs: 'trousers', shoe: '#c9962a', height: 1.9, build: 1.25, girth: 1.1, shape: 0.1, boots: true, eye: '#2f4f6b' },
+    moves: [
+      ['Light', 'Punches that send villains flying; in the air, a flying punch at the enemy you aim at (or a flick of the sun beams)'], ['Heavy', 'Comet punch: a lunge that launches whoever it hits'],
+      ['1 Sun beams', 'Twin beams from the eyes for 1.8 s; they set robots alight'], ['2 Gale breath', 'A gale that blows villains down the street and their shots out of the air'],
+      ['3 Skyfall', 'Up into the sky, then down on the crosshair in a crater'], ['R Sunfall', 'Carries one villain 30 m up and drives them into the street'],
+      ['Space in the air', 'Fly: WASD where you look, Space up, C down; C at the ground lands'], ['Shift in flight', 'Builds to 250 km/h and breaks the sound barrier'], ['Fast landing', 'A landing with a shockwave'],
+    ],
+  },
+  ginro: {
+    alt: { top: '#e8e4da', vest: '#2b2f45', bottom: '#2b2f45', scarf: '#2f5d8a' },
+    name: 'Ginro', title: 'masked ninja of a hundred tricks', color: '#cfd8ee', hp: 150, speed: 1.35, jump: 10.5,
+    blurb: 'A masked ninja with silver hair, a wolf made of lightning, and a trick for every fight.',
+    look: { kind: 'human', skin: '#f1c9a5', hair: '#cfd6e2', hairStyle: 11, top: '#1f2937', vest: '#3b4252', bottom: '#1a202c', accent: '#cfd8ee', outfit: 'vest', sleeves: 'long', legs: 'trousers', scarf: '#7a1f2c', height: 1.8, build: 0.95, shape: 0.3, boots: true, eye: '#2b2f3a' },
+    moves: [
+      ['Light', 'Short-blade cuts; a thrown knife at anyone further than 4 m (or from the air)'], ['Heavy', 'Lightning wolf: runs down the enemy you aim at, bites, and the shock jumps to two more'],
+      ['1 Stone wall', 'A wall bursts out of the street: it throws villains into the air and stands 6 s as cover'], ['2 Shock decoy', 'Flicker 7 m back, leaving a copy of you that bursts into lightning'],
+      ['3 Water dragon', 'A dragon of water winds through up to five villains'], ['R Storm wolf', 'A giant wolf of lightning charges 45 m through everything'],
+    ],
+  },
+  orbit: {
+    alt: { top: '#e8eef4', bottom: '#2a2c3a', accent: '#ff7ad9' },
+    name: 'Orbit', title: 'gravity bender', color: '#7d8bff', hp: 150, speed: 1.2, jump: 12,
+    blurb: 'Bends gravity: villains float, fall and fly where she points, and the street itself comes up to hit them.',
+    look: { kind: 'human', skin: '#7b4a2f', hair: '#16171c', hairStyle: 8, top: '#1b1e3a', shirt: '#2a2f55', bottom: '#14162b', accent: '#7d8bff', outfit: 'coat', sleeves: 'long', legs: 'trousers', height: 1.74, build: 0.9, shape: 0.7, boots: true },
+    moves: [
+      ['Light', 'Gravity bolts; every third is heavier and bursts'], ['Heavy', 'Crush: lifts the enemy you aim at and slams them down (drones are pulled out of the air)'],
+      ['1 Zero-g', 'Everyone within 7 m of the crosshair floats helpless for 4 s, then drops'], ['2 Hurl', 'Tears five rocks out of the street and throws them at the crosshair'],
+      ['3 Repel field', '6 s: shots are flung aside, most damage is stopped, and anyone close is pushed away'], ['R Singularity', 'A black hole at the crosshair pulls everyone in for 5 s, then bursts'],
+      ['Hold Space in the air', 'Float down slowly (she falls at half weight anyway)'],
+    ],
+  },
+  lapse: {
+    alt: { top: '#3a2a4a', shirt: '#e8e4da', accent: '#ffd34d' },
+    name: 'Lapse', title: 'time bender', color: '#4be38f', hp: 145, speed: 1.3, jump: 10,
+    blurb: 'Stops clocks: freezes villains where they stand, moves twice as fast, and takes back the last four seconds.',
+    look: { kind: 'human', skin: '#e0ac7e', hair: '#f2f4f8', hairStyle: 5, top: '#0f3d3a', shirt: '#e8eef4', bottom: '#16201f', accent: '#4be38f', outfit: 'jacket', sleeves: 'long', legs: 'trousers', height: 1.72, build: 0.9, shape: 0.65, boots: true, eye: '#3f6b4a' },
+    moves: [
+      ['Light', 'Cuts with a clock-hand blade'], ['Heavy', 'Time bolt: whoever it hits is frozen for 2 s'],
+      ['1 Rewind', 'Back to where you were 4 s ago, with the health you had then'], ['2 Stasis', 'A bubble at the crosshair for 4.5 s: villains inside cannot move, and shots inside vanish'],
+      ['3 Haste', '6 s: you run half as fast again and your powers come back twice as quickly'], ['R Time stop', '5 s: every villain and every shot stands still, and what you do to them lands when time starts again'],
+    ],
+  },
+  prism: {
+    alt: { top: '#16171c', shirt: '#e8eef4', bottom: '#e8eef4', accent: '#59e0ff' },
+    name: 'Prism', title: 'hard-light skater', color: '#ff7ae0', hp: 150, speed: 1.3, jump: 10.5,
+    blurb: 'Rides a rail of hard light through the air and fights with every colour in it.',
+    look: { kind: 'human', skin: '#c68d6b', hair: '#ff7ae0', hairStyle: 3, top: '#f4f1ff', shirt: '#1c1f27', bottom: '#1c1f27', accent: '#ff7ae0', outfit: 'jacket', sleeves: 'short', legs: 'shorts', shoe: '#e8e8ea', height: 1.7, build: 0.9, shape: 0.6, visor: true },
+    moves: [
+      ['Light', 'Light-blade cuts; riding the light, shards at the crosshair'], ['Heavy', 'Refract: a beam that splits where it lands into rays to the five nearest villains'],
+      ['1 Light cage', 'Bars of light round the crosshair hold everyone inside for 4 s'], ['2 Dazzle', 'A flash in front of you: villains are blinded for 3 s'],
+      ['3 Mirror', '5 s: damage cut to a fifth and thrown back at whoever dealt it'], ['R Spectrum', 'Seven beams, one of each colour, then all of them at once in a white blast'],
+      ['Space in the air', 'Ride the light: it runs where you look. W faster, S slower, Shift fastest, Space climbs, C dives and lands'], ['Riding through villains', 'Knocks them aside'],
+    ],
+  },
 };
 export const HERO_IDS = Object.keys(HEROES);
 

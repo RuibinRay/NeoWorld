@@ -646,7 +646,8 @@ finished, in 23.8 to 94 s (median 35 s), with no landings mid-course in most run
 
 **Unlocking heroes.** Strand, Forge and Raiko are open from the start; the others unlock two at a
 time as you finish the Hero Hall missions (The Three Storms): Sable and Rook after mission 1, Brann
-and Bulwark after 2, Warden and Kitsu after 3, Trine and Ember after 4. A hero you have already
+and Bulwark after 2, Warden and Kitsu after 3, Trine and Ember after 4. The six heroes of the third
+wave (Tempo, Zenith, Ginro, Orbit, Lapse, Prism) are open from the start. A hero you have already
 played stays unlocked. Locked heroes show greyed out with a lock in the Hero Hall.
 
 **Code 7103** (pause menu ▸ Redeem a code): unlimited money (the wallet stays at ◈9,999,999 whatever
@@ -835,6 +836,31 @@ Forge outflying them on afterburner in 26 s, and three stuns on foot fining ◈3
 | **Trine**, three-blade swordswoman | wide three-blade cuts / whirlwind | a flying slash that passes through a line of enemies | dash through up to three enemies in turn | counter: a 1.5 s guard, then a huge counter-slash if hit | nine flying slashes in a fan |
 | **Ember**, fire-fist brawler | burning punches (they set robots alight) / fireball | fire dash that leaves flames behind | a ring of fire pillars | flame body: 6 s, a quarter of the damage, attackers burn | a meteor at the crosshair, 12 m wide |
 
+**The third wave of heroes** (`systems/heroes3.js`, data in `data/heroes.js`): six more, open from the
+start (the mission unlocks stay as they were). The first three were asked for by the kind of hero
+(a speedster, a flying powerhouse, a masked ninja of many techniques); the last three are the game's
+own. Each has a Higgsfield portrait (see "From Higgsfield"); they have no card clips yet, so the card
+shown when you become one is the still picture.
+
+| Hero | Light / heavy | 1 | 2 | 3 | R | Moving |
+|---|---|---|---|---|---|---|
+| **Tempo**, lightning-fast runner | a blur of four punches / whirlwind: laps round the spot you aim at, and the vortex throws everyone inside into the air | bolt dash: up to 40 m to the crosshair through everything | lightning throw: 50 damage, and the bolt jumps to the three nearest | phase: 5 s of every attack passing through him | thunder lap: every villain within 32 m struck lap after lap (at least nine blows), then lightning on all of them | **Shift + W** is the rush: 10 to 46 m/s (166 km/h) in about 3 s, steered by the camera in wider arcs the faster he goes. He runs across water, off edges with his speed, straight up any tall wall he meets head-on (feet on the wall, over the top onto the roof; Space leaps off) and through villains (up to 23 damage and a long knock). Space in a rush is a leap that keeps the speed |
+| **Zenith**, sun-powered guardian | punches with a long knock; in the air a flying punch at the enemy you aim at, or a flick of the sun beams / comet punch: a 10 m lunge that launches whoever it hits | sun beams from the eyes for 1.8 s (they set robots alight) | gale breath: 1.2 s of wind that blows villains down the street and their shots out of the air | skyfall: 20 m up, then down on the crosshair in a crater | sunfall: carries one villain 30 m straight up and drives them into the street (160, and 55 to everyone within 9 m); a boss is too big to carry, so he comes down on it | flies the way Forge does (Space in the air, WASD, Space up, C down, C at the ground lands), without the thrusters: one fist ahead in a cruise, both on Shift, to 70 m/s, with a sonic boom past 45 |
+| **Ginro**, masked ninja of a hundred tricks | short-blade cuts, or a thrown knife at anyone further than 4 m / a wolf of lightning runs down the enemy you aim at; its bite stuns, and the shock jumps to two more | stone wall: 6.4 m wide and 3.2 m high out of the street, square to the grid; it throws villains into the air and is solid for 6 s (cover from shots, and you can stand on it) | shock decoy: he flickers 7 m back and the copy left behind bursts into lightning (45, a 2.5 s stun), sooner if a villain reaches it | water dragon: winds through up to five villains, 30 each | storm wolf: a giant wolf of lightning charges up to 45 m through everything (95), until a building stops it | |
+| **Orbit**, gravity bender | gravity bolts, every third one heavier with a small blast / crush: the enemy you aim at is lifted and slammed (a drone is pulled down out of the air) | zero-g: everyone within 7 m of the crosshair floats, helpless, for 4 s, then drops (their hit spheres rise with them) | hurl: five rocks out of the street, thrown at the crosshair one after another | repel field: 6 s of shots flung aside, a fifth of the damage, and anyone close pushed away | singularity: a black hole over the crosshair drags in every villain within 18 m for 5 s, swallows shots, then bursts | falls at half weight; holding Space in the air floats her down |
+| **Lapse**, time bender | clock-hand blade cuts / time bolt: whoever it hits is frozen 2 s | rewind: back to where she stood 4 s ago with the health she had then | stasis: a 6 m bubble at the crosshair for 4.5 s; villains inside cannot move, shots inside vanish | haste: 6 s of running half as fast again, every cooldown at double speed | time stop: for 5 s the villains' clock runs at 3% (`Villains.update` reads `heroes.timeK`); blows still land, and the knockback is paid out when time starts again | |
+| **Prism**, hard-light skater | light-blade cuts (riding: shards at the crosshair) / refract: a beam that splits where it lands into rays to the five nearest | light cage: bars round the crosshair hold everyone inside for 4 s | dazzle: a flash that blinds villains in front for 3 s | mirror: 5 s of a fifth of the damage, thrown back at whoever dealt it | spectrum: seven beams, one of each colour, at up to seven villains, then all of them at once | **Space in the air** rides a rail of hard light laid down as she goes: it runs where the camera looks at 18 m/s, 27 with W, 40 with Shift, 9 with S; Space climbs, C dives, the street lands her, a wall throws her off. Villains in the way are knocked aside |
+
+Signature moves (level 4): Tempo sonic boom, Zenith solar flare, Ginro knife storm, Orbit meteor swarm,
+Lapse echo strike, Prism rainbow road. Things that last a while (the wolf, the wall, the decoy, the
+black hole, the stasis bubble) run through `Heroes.run()`, which also removes whatever they put in the
+scene if the hero changes or is knocked out part-way. Tested by script on the training ground and
+against a gunner, a brute, a ninja, a drone and a thug: every power of all six, no errors, the hero
+always back on their feet afterwards. Two fixes came out of the tests: a dash now moves in 0.4 m steps
+(Zenith's dive from 30 m sank into the park's ground slab in one frame and was pushed out of its far
+side, 30 m away), and turning on foot is never slower than 3 rad/s (past 11.5 m/s the limit went
+negative and spun the hero round; Rook's Form 2 sprint was fast enough to meet it).
+
 **Upgrades** (Hero Hall ▸ Upgrades, for every hero): Power (+15% damage), Vitality (+20% health),
 Focus (12% shorter cooldowns), three levels each at ◈400, ◈900 and ◈1,600.
 
@@ -1022,6 +1048,7 @@ beforehand, also in `src/assets/art/` (about 0.8 MB together; the originals were
 | `ad-skyball.jpg`, `ad-solara.jpg`, `ad-tin-lantern.jpg` | 682×1024 | The three adverts that were drawn designs, on the towers and the street posters |
 | `hero-brann.jpg`, `hero-bulwark.jpg`, `hero-warden.jpg`, `hero-kitsu.jpg`, `hero-trine.jpg`, `hero-ember.jpg` | 600×800 | The second wave of heroes, used the same way |
 | `villain-vektor.jpg`, `villain-shade.jpg` | 600×800 | The cards when Vektor and Shade arrive in a raid |
+| `hero-tempo.jpg`, `hero-zenith.jpg`, `hero-ginro.jpg`, `hero-orbit.jpg`, `hero-lapse.jpg`, `hero-prism.jpg` | 600×800 | The third wave of heroes, used the same way (made on 15 November 2026; Soul now returns 1536×1152, so each is the middle 864×1152 of its picture) |
 | `print-meridian.jpg` | 1200×696 | The framed city print you can buy for your home (cropped to the picture: Higgsfield drew it hanging on a wall) |
 
 - The first try used Higgsfield's Soul Cinema model and failed on their side (failed requests are
@@ -1029,7 +1056,9 @@ beforehand, also in `src/assets/art/` (about 0.8 MB together; the originals were
 - Strand's first portrait came out with pointed ears and big white eye lenses, too close to existing
   comic heroes, so it was made again with a smooth helmet and one teal visor band, and his mask in the
   game was changed to match. Rook's colours were changed (green top, charcoal shorts, orange sash) so
-  his outfit is not a well-known pirate's.
+  his outfit is not a well-known pirate's. Ginro's first portrait came out with a forehead band and
+  a pouched vest, too close to a well-known anime ninja, so it was made again with a bare forehead, a
+  plain sleeveless jacket and the red scarf, as he is in the game (seven pictures for the six heroes).
 - Cost: the API is billed to your Higgsfield API balance, which only the Higgsfield console shows
   (the connector's 294.62 credits did not change). Higgsfield's docs do not list prices.
 

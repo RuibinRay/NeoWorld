@@ -832,11 +832,12 @@ export class Villains {
     }
   }
   update(dt, t) {
-    this.stepProjectiles(dt);
-    if (this.leaving) { this.leaving.update(dt); if (this.leaving.gone) this.leaving = null; }   // a saved resident walking off after the crime is over
     const H = G.heroes, P = G.player.pos;
-    for (let i = this.foes.length - 1; i >= 0; i--) { const f = this.foes[i]; f.update(dt, t); if (f.gone) this.foes.splice(i, 1); }
-    if (this.boss) { this.boss.update(dt, t); if (this.boss && this.boss.gone) { this.boss = null; this.calmUntil = G.elapsed + 5; } }
+    const vdt = dt * (H && H.on ? H.timeK ?? 1 : 1);   // the villains' own clock: Lapse's time stop all but halts them and their shots (the raid's clock runs on)
+    this.stepProjectiles(vdt);
+    if (this.leaving) { this.leaving.update(dt); if (this.leaving.gone) this.leaving = null; }   // a saved resident walking off after the crime is over
+    for (let i = this.foes.length - 1; i >= 0; i--) { const f = this.foes[i]; f.update(vdt, t); if (f.gone) this.foes.splice(i, 1); }
+    if (this.boss) { this.boss.update(vdt, t); if (this.boss && this.boss.gone) { this.boss = null; this.calmUntil = G.elapsed + 5; } }
     if (!this.boss && this.stormFrom) { G.env.setWeather('rain'); this.stormFrom = null; }
     const LT = !this.boss && this.raid && this.raid.lieut && this.raid.lieut.alive ? this.raid.lieut : null;
     if (H && H.on && LT) H.bossBar({ title: HIDEOUTS[this.raid.owner].lieut.title, hp: LT.hp, max: LT.max, phaseText: 'Lieutenant', face: HIDEOUTS[this.raid.owner].face });

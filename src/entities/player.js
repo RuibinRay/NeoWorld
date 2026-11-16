@@ -168,7 +168,7 @@ export class Player {
       if (len > 0 && sp0 > 0.3) {
         const diff = angDelta(Math.atan2(dx, dz), Math.atan2(wx, wz));
         if (Math.abs(diff) > 2.2 && sp0 > 2.5) target = 0;                            // reversing: stop first
-        else { const turn = clamp(diff, -(15 - sp0 * 1.3) * dt, (15 - sp0 * 1.3) * dt), a = Math.atan2(dx, dz) + turn; dx = Math.sin(a); dz = Math.cos(a); if (Math.abs(diff) > 0.9) target *= 0.85; }
+        else { const tr = Math.max(3, 15 - sp0 * 1.3) * dt, turn = clamp(diff, -tr, tr), a = Math.atan2(dx, dz) + turn; dx = Math.sin(a); dz = Math.cos(a); if (Math.abs(diff) > 0.9) target *= 0.85; }   // (never less than 3 rad/s: past 11.5 m/s the limit used to go negative and spin a fast hero round)
       }
       const acc = target > sp0 ? (sp0 < 3.6 ? 17 : 8) : sp0 > 5 ? 15 : 22, sp = target > sp0 ? Math.min(target, sp0 + acc * dt) : Math.max(target, sp0 - acc * dt);
       this.vel.x = dx * sp; this.vel.z = dz * sp;
