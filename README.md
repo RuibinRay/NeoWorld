@@ -687,6 +687,22 @@ moves page lists the form's moves. First four forms:
 - **Sable, Alpha Wolf**: a giant dark wolf with glowing red markings. Claw swipes, a pounce on the
   nearest villain, a howl that stuns everyone within 15 m, a pack of eight hounds, a shadow dash,
   and R: Moonfang, five bites and a throw.
+Elemental forms:
+- **Raiko, Stormbound**: his body turned to lightning (arcs crackle round him, a violet glow trails
+  him at speed). Blade waves that fly ahead, a blink chain through up to five villains, a plasma
+  typhoon breath, five bolts on the nearest villains, a 20 m thunder step, and R: Heaven's Edge, a
+  giant blade of light falling where you aim.
+- **Brann, Storm Herald**: lightning armour with two orbs circling him, and light as a cloud (gravity
+  at a third: a jump goes 14.5 m up). Hammer blows that call lightning on whoever they hit, a hammer
+  meteor, chain lightning through six villains, a 4 s thunder dome, a storm of eight bolts, and R:
+  Skyfall Strike, up into the sky and down onto where you aim.
+- **Ember, Phoenix**: wings of fire (flapping, shedding flames), and real flight: Space in the air
+  flies the way Forge does. Fire bolts, a dive bomb, meteor rain, a wing sweep, a blaze trail that
+  leaves fire wherever she goes, and R: Rebirth Nova, half her health back and a blast 14 m wide.
+- **Kitsu, Nine-Tail Spirit**: a translucent fox spirit 8 m tall around her, with nine swaying tails.
+  Tail sweeps, a spirit bomb, six fox-fire orbs that hunt villains, six clones, a spirit dash, and R:
+  Tail Storm, all nine tails striking round her in turn.
+
 Giant blows land low in front of the body (from a giant's chest they first sailed over the robots on
 the street, and the Colossus took 28 s to clear a raid that Bulwark clears in 9). Tested on the
 training robots, damage a second with every move on cooldown, normal against transformed: Forge 68

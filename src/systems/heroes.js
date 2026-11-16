@@ -221,7 +221,7 @@ export class Heroes {
       else if (this.form === 4) { sp = 1.15; jv = 15; gk = 0.55; sc = 1.3; ck = 1.2; }
     }
     if (this.id === 'bulwark') { sc = this.ult > 0 ? 1.5 : 1 + (this.rage || 0) / 100 * 0.15; ck = this.ult > 0 ? 1.3 : 1; }
-    const fs = this.forms && this.forms.stats(); if (fs) { sc = fs.sc; sp = fs.sp; jv = fs.jv; ck = fs.ck; gk = 1; }   // transformed (or changing)
+    const fs = this.forms && this.forms.stats(); if (fs) { sc = fs.sc; sp = fs.sp; jv = fs.jv; ck = fs.ck; gk = fs.gk; }   // transformed (or changing)
     if (this.tired > 0) sp *= 0.55;
     if (this.channel && this.channel.slow) sp *= this.channel.slow;
     p.speedMul = sp; p.jumpV = jv; p.gravK = gk; p.camK = ck * (1 + (this.speedK || 0) * 0.18);   // the camera drops back a little at speed
@@ -397,6 +397,7 @@ export class Heroes {
     if (free) {
       // movement powers that start from walking
       if (inp.pressed('KeyT')) this.forms.toggle();
+      if (this.forms.on && this.forms.on.fly && p.state === 'walk' && !p.grounded && !p.swim && inp.pressed('Space')) this.startMove('fly', {});   // a form with wings flies the way Forge does
       if (p.state === 'walk' && !p.grounded && !p.swim && !this.forms.active) {
         if (this.id === 'strand' && inp.pressed('Space')) this.startSwing();
         else if (this.id === 'forge' && inp.pressed('Space')) this.startMove('fly', {});
