@@ -13,7 +13,7 @@ import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
 import { artUrl } from '../world/art.js';
-import { Forms } from './forms.js';
+import { Forms, FORMS } from './forms.js';
 const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 
 const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
@@ -104,6 +104,7 @@ export class Heroes {
           { label: `Costume: ${['classic', 'alternate', 'elite'][this.costume || 0]}`, desc: `Alternate at level 2, elite at level 5 (now level ${this.level()})`, onPick: () => this.costumeMenu() },
           { label: `${this.H.name}'s moves`, onPick: () => this.movesMenu() },
           { label: 'Boss fights', desc: 'Kurozan, Vektor and Shade, each in their own arena', onPick: () => this.bossMenu() },
+          { label: 'Transformations', desc: `T when the meter is full · now ${Math.floor(this.forms.meter)}%`, onPick: () => this.formsMenu() },
           { label: 'Hideouts', desc: 'Each crew has a base: stop their raids to find it, then take it', onPick: () => this.hideoutMenu() },
         ] : []),
         { label: 'Upgrades', desc: 'Power, vitality and focus, for every hero', onPick: () => this.upgradeMenu() },
@@ -130,6 +131,12 @@ export class Heroes {
         ? { label: `${this.on && this.id === id ? '✓ ' : ''}${HEROES[id].name}`, desc: HEROES[id].title, onPick: () => pick(id) }
         : { label: `🔒 ${HEROES[id].name}`, desc: this.lockText(id), disabled: true, why: `${HEROES[id].name} is locked. ${this.lockText(id)} (Hero Hall ▸ Hero missions).` }),
       { label: 'Back', onPick: () => this.menu() }] });
+  }
+  // Hero Hall ▸ Transformations: every hero's form, what it does, and its moves
+  formsMenu() {
+    const F = this.forms, rows = HERO_IDS.filter((id) => FORMS[id]).map((id) => { const f = FORMS[id], img = artUrl(`hero-${id}.jpg`); return `<div class="hero-row">${img ? `<img src="${img}" alt="" style="border-color:${f.color}">` : ''}<div><b style="color:${f.color}">${HEROES[id].name}: ${f.name}</b><br><span style="color:var(--dim)">${f.blurb}</span><br><small>${f.moves.map(([k, d]) => `<b>${k}</b> ${d}`).join(' · ')}</small></div></div>`; }).join('');
+    G.ui.openMenu({ title: 'Transformations', who: `Hero Hall · meter ${Math.floor(F.meter)}%`, wide: true, html: `<p>Fighting fills the transform meter (under the ultimate meter; about two raids). Full, <b>T</b> transforms you for 30 s: a new body, 150 armour that soaks damage first, no knock-back, and the moves below. T again turns back early; a knockout ends it.</p>${rows}`,
+      options: [{ label: 'Back', onPick: () => this.menu() }] });
   }
   bossMenu() {
     const s = this.st;

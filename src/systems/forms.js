@@ -78,6 +78,29 @@ export const FORMS = {
     name: 'Titan Gear', blurb: 'a rubber giant wreathed in steam', color: '#f08a24', scale: 2.8, speed: 1.15, jump: 13, cam: 2.3,
     moves: [['Light', 'Stretch punches that reach 10 m'], ['Heavy', 'Bounce slam: up high, then down hard'], ['1 Gatling flurry', 'A storm of stretching punches (1.6 s)'], ['2 Car whip', 'Grab a vehicle, whip it round and fling it'], ['3 Steam overdrive', '8 s much faster'], ['R Titan fist', 'A giant fist falls from the sky where you aim']],
   },
+  strand: {
+    name: 'Loom Titan', blurb: 'a giant woven from glowing web', color: '#e8fbff', scale: 2.8, speed: 1.05, jump: 13, cam: 2.3,
+    moves: [['Light', 'Web-fist hammer blows (they stick)'], ['Heavy', 'Hurl: pick up the nearest villain or vehicle and throw it'], ['1 Net cannon', 'A huge web that ties up everyone it splashes'], ['2 Yank six', 'Lines to six villains, pulled into a pile in front of you'], ['3 Skyline leap', 'A long jump that lands in a web quake'], ['R Cocoon Storm', 'Every villain within 30 m wrapped up and crushed']],
+    setup(H) { return { tick: (dt, t, k) => { if (k < 0.3) return; const p = G.player, c = H.centre(); if (Math.random() < dt * 16) { const a = Math.random() * 6.28, h = Math.random() * 6; G.fx.beam(V().set(c.x + Math.cos(a) * 0.6 * k, p.pos.y + h * k * 0.6, c.z + Math.sin(a) * 0.6 * k), V().set(c.x + Math.cos(a + 1) * 1.4 * k, p.pos.y + (h + 1.5) * k * 0.6, c.z + Math.sin(a + 1) * 1.4 * k), '#e8fbff', 0.04, 0.3); } } }; },
+  },
+  warden: {
+    name: 'Aegis Paragon', blurb: 'wings of light-shields, and nearly weightless', color: '#59e0ff', scale: 1.35, speed: 1.3, jump: 13, cam: 1.4, grav: 0.5,
+    moves: [['Light', 'Shield bashes'], ['Heavy', 'Shield dive (in the air) or a shield wave'], ['1 Shield storm', 'Eight shields orbit you for 5 s, cutting into anyone close'], ['2 Sanctuary', '6 s: a dome that stops shots and heals you'], ['3 Rally', 'Heal 60 and stun everyone round you'], ['R Last Stand', 'The shield ricochets 24 times among the villains']],
+    setup(H) {
+      const r = G.player.rig, mat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#59e0ff').multiplyScalar(1.3), transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), geo = new THREE.CircleGeometry(0.32, 6);
+      const plates = []; for (let i = 0; i < 6; i++) { const s = i < 3 ? 1 : -1, j = i % 3, m = new THREE.Mesh(geo, mat); m.position.set(s * (0.35 + j * 0.32), 0.45 + j * 0.18, -0.22 - j * 0.05); m.rotation.y = s * 0.5; r.chest.add(m); plates.push({ m, s, j }); }
+      return { tick: (dt, t, k) => { plates.forEach((q) => { q.m.scale.setScalar(k); q.m.rotation.z = Math.sin(t * 2 + q.j) * 0.2 * q.s; q.m.position.y = 0.45 + q.j * 0.18 + Math.sin(t * 3 + q.j) * 0.03; }); }, dispose: () => { plates.forEach((q) => q.m.removeFromParent()); geo.dispose(); mat.dispose(); } };
+    },
+  },
+  trine: {
+    name: 'Blade Asura', blurb: 'six arms, a blade in every hand', color: '#ff9ab0', scale: 1.3, speed: 1.45, jump: 11, cam: 1.4,
+    moves: [['Light', 'Six-blade flurry'], ['Heavy', 'Blade cyclone: 1.5 s of spinning blades'], ['1 Slash barrage', 'Five flying slashes in a fan'], ['2 Counter aura', '4 s: anything that hits you is cut down in return'], ['3 Severing dash', 'Through up to five villains in turn'], ['R Thousand Cuts', 'Every villain within 15 m cut thirty times']],
+    setup(H) {
+      const r = G.player.rig, skin = new THREE.MeshStandardMaterial({ color: '#2b2f45', roughness: 0.6 }), blade = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff9ab0').multiplyScalar(1.4) });
+      const arms = []; for (let i = 0; i < 4; i++) { const s = i % 2 ? 1 : -1, row = i < 2 ? 0 : 1, g = new THREE.Group(); g.position.set(s * 0.24, 0.32 - row * 0.2, -0.02); r.chest.add(g); const a = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.55, 0.07), skin); a.position.y = -0.27; g.add(a); const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.7, 0.06), blade); b.position.set(0, -0.75, 0.05); g.add(b); arms.push({ g, s, row }); }
+      return { tick: (dt, t, k) => { const fast = this.flurry > 0 ? 18 : 2.5; arms.forEach((q, i) => { q.g.scale.setScalar(k); q.g.rotation.z = q.s * (0.9 + q.row * 0.4) + Math.sin(t * fast + i) * 0.35; q.g.rotation.x = -0.6 + Math.sin(t * fast * 0.8 + i * 1.7) * 0.7; }); if (this.flurry > 0) this.flurry -= dt; }, dispose: () => { arms.forEach((q) => { q.g.removeFromParent(); q.g.traverse((m) => { if (m.geometry) m.geometry.dispose(); }); }); skin.dispose(); blade.dispose(); } };
+    },
+  },
   raiko: {
     name: 'Stormbound', blurb: 'his body turned to lightning', color: '#c9b8ff', scale: 1.25, speed: 1.7, jump: 12, cam: 1.25,
     moves: [['Light', 'Lightning blade waves that fly ahead'], ['Heavy', 'Blink chain: through up to five villains in turn'], ['1 Plasma typhoon', 'A storm of fire and lightning for 1.8 s'], ['2 Five bolts', 'Lightning on the five nearest villains'], ['3 Thunder step', 'Flash 20 m through everything'], ['R Heaven\'s Edge', 'A giant blade of light falls where you aim']],
@@ -150,6 +173,7 @@ export class Forms {
     if (G.audio) G.audio.tone(320, 0.6, 0.05, 'triangle', null, 0, 0.4);
   }
   finish() {
+    this.sanct = 0; if (this.counterT > 0) { this.counterT = 0; this.H.counter = 0; }
     if (this.dome) { this.dome.m.removeFromParent(); this.dome = null; } this.blaze = 0;
     this.on = null; this.seq = null; this.armour = 0; this.k = 0;
     if (this.extra && this.extra.dispose) this.extra.dispose(); this.extra = null;
@@ -201,6 +225,8 @@ export class Forms {
     if (this.on && H.id === 'rook' && Math.random() < dt * 8) G.fx.smoke(V().set(p.pos.x + (Math.random() - 0.5) * 3, p.pos.y + 2 + Math.random() * 4, p.pos.z + (Math.random() - 0.5) * 3), 1, '#e8eef4', 1.6, 1.4);
     if (this.boost > 0) { this.boost -= dt; if (this.boost <= 0) H.applyStats(); }
     if (this.extra && this.extra.tick) this.extra.tick(dt, t, this.k);
+    if (this.sanct > 0) { this.sanct -= dt; H.hp = Math.min(H.max, H.hp + dt * 6); }
+    if (this.counterT > 0) { this.counterT -= dt; H.counter = 1; if (Math.random() < dt * 8) G.fx.ring(H.centre(), '#ff9ab0', 1.2, 1.5, 0.15); if (this.counterT <= 0) H.counter = 0; }
     if (this.dome) { const D = this.dome; D.t -= dt; D.tick -= dt; D.m.position.set(p.pos.x, p.pos.y, p.pos.z); D.m.material.opacity = 0.12 + Math.sin(t * 9) * 0.04; if (D.tick <= 0) { D.tick = 0.3; H.ball(H.centre(), 8, { dmg: 9, stun: 0.5, knock: 3, kind: 'shock', color: '#8fd3ff', civ: false }); for (let i = 0; i < 2; i++) { const a = Math.random() * 6.28, b = Math.random() * 1.4; G.fx.bolt(H.centre(), V().set(p.pos.x + Math.cos(a) * 8 * Math.cos(b), p.pos.y + 8 * Math.sin(b), p.pos.z + Math.sin(a) * 8 * Math.cos(b)), '#8fd3ff', 0.05, 0.12); } } if (D.t <= 0) { D.m.removeFromParent(); D.m.geometry.dispose(); this.dome = null; } }
     if (this.blaze > 0) { this.blaze -= dt; if (Math.random() < dt * 10) { H.patches = H.patches || []; H.patches.push({ p: V().set(p.pos.x, G.colliders.groundAt(p.pos.x, p.pos.z, p.pos.y + 1, 30, 0.3), p.pos.z), t: 4, k: 0.3, r: 1.6 }); } }
   }
@@ -228,6 +254,9 @@ export class Forms {
 
 // ---- the form moves: called with this = Forms, (H = the hero system, p = the player); return the cooldown
 const SND = {
+  strand: { light: [['punch']], heavy: [['thwip'], ['whoosh', 0.35]], p1: [['thwip'], ['splat', 0.3]], p2: [['thwip'], ['zip', 0.1]], p3: [['whoosh']], ult: [['thwip'], ['thwip', 0.2], ['slam', 1.2]] },
+  warden: { light: [['clank']], heavy: [['clang']], p1: [['whirl']], p2: [['shield']], p3: [['ring']], ult: [['clang'], ['clang', 0.4], ['clang', 0.8]] },
+  trine: { light: [['shing'], ['shing', 0.06], ['shing', 0.12]], heavy: [['whirl']], p1: [['shing'], ['whoosh', 0.05]], p2: [['shield']], p3: [['shing'], ['shing', 0.3]], ult: [['whirl'], ['shing', 0.5], ['shing', 1]] },
   raiko: { light: [['shing']], heavy: [['blink'], ['zap', 0.1]], p1: [['roar'], ['zap', 0.2]], p2: [['bolt'], ['bolt', 0.3]], p3: [['blink']], ult: [['charge'], ['bolt', 0.7]] },
   brann: { light: [['clang']], heavy: [['whoosh'], ['bolt', 0.6]], p1: [['zap']], p2: [['ring']], p3: [['bolt'], ['bolt', 0.4]], ult: [['whoosh'], ['bolt', 1.1]] },
   ember: { light: [['fireball']], heavy: [['fire']], p1: [['fireball'], ['fireball', 0.5]], p2: [['fire']], p3: [['fire']], ult: [['power'], ['boom', 0.5]] },
@@ -252,6 +281,40 @@ function throwCar(H, p, range, speed, from) {
   return false;
 }
 const MOVES = {
+  strand: {
+    light(H, p) { const side = (this.side = -(this.side || 1)); p.play(side > 0 ? 'punchR' : 'punchL', 0.3); H.faceAim(0.4); H.later(0.1, () => { front(H, p, 3.6, 4, { dmg: 34, knock: 10, up: 2, stun: 0.6, kind: 'web', color: '#e8fbff' }); H.trail(side > 0 ? 'R' : 'L', '#e8fbff', 0.22, 0.16); G.fx.spark(groundAhead(p, 3.6), '#e8fbff', 10, 5, 0.3, 0.15); }); return 0.32; },
+    heavy(H, p) {
+      const t = H.nearest(1, 10).find((q) => !q.big && q.vel); p.play('raise', 0.4); H.faceAim(0.8);
+      H.later(0.35, () => { p.play('throw', 0.4); if (t && t.alive) { const a = H.aim(80), d = V().subVectors(a.point, t.pos).setY(0).normalize(); G.fx.beam(H.hand(), G.combat.centre(t, V()), '#e8fbff', 0.08, 0.3); t.vel.x += d.x * 30; t.vel.z += d.z * 30; t.vy = 9; G.combat.hitTarget(t, d, { dmg: 50, stun: 1.5, knock: 0, kind: 'web', color: '#e8fbff', byHero: true }); } else throwCar(H, p, 14, 32, V().set(p.pos.x, p.pos.y + 6, p.pos.z)); });
+      return 1.4;
+    },
+    p1(H, p) { const a = H.aim(70), from = H.chest(); p.play('castR', 0.35); H.shoot({ from, dir: V().subVectors(a.point, from).normalize(), speed: 40, r: 1.4, color: '#e8fbff', dmg: 30, knock: 4, stun: 3.5, blast: 7, power: 1, kind: 'web', life: 2, trail: '#ffffff' }); return 6; },
+    p2(H, p) { const list = H.nearest(6, 25).filter((q) => !q.big && q.vel), at = groundAhead(p, 4); p.play('cast', 0.5); list.forEach((t, i) => H.later(i * 0.05, () => { if (!t.alive) return; G.fx.beam(H.hand(), G.combat.centre(t, V()), '#e8fbff', 0.06, 0.4); const d = V().set(at.x - t.pos.x, 0, at.z - t.pos.z), L = d.length() || 1; t.vel.x += d.x / L * Math.min(24, L * 2.4); t.vel.z += d.z / L * Math.min(24, L * 2.4); G.combat.hitTarget(t, d.normalize(), { dmg: 25, stun: 1.6, knock: 0, kind: 'web', color: '#e8fbff', byHero: true }); })); return 7; },
+    p3(H, p) { if (!p.grounded) return 0; const f = fwdOf(p); p.vel.set(f.x * 22, 15, f.z * 22); p.grounded = false; p.fling = 'leap'; p.play('backflip', 0.9); this.landing = { r: 9, dmg: 50, up: 6, knock: 10, stun: 2, power: 3 }; return 5; },
+    ult(H, p) { G.ui.flash('COCOON STORM', 1.2); p.play('raise', 0.8); const list = [...G.combat.targets].filter((q) => q.alive && q.team === 'villain' && q.pos && q.pos.distanceTo(p.pos) < 30);
+      list.forEach((t, i) => H.later(0.1 + i * 0.06, () => { if (!t.alive) return; G.fx.beam(H.hand(), G.combat.centre(t, V()), '#e8fbff', 0.07, 0.6); G.combat.hitTarget(t, V().set(0, 1, 0), { dmg: 30, stun: 6, knock: 0, kind: 'web', color: '#e8fbff', byHero: true }); }));
+      H.later(1.2, () => list.forEach((t) => { if (t.alive) { G.combat.hitTarget(t, V().set(0, 1, 0), { dmg: 50, knock: 0, kind: 'blunt', color: '#e8fbff', byHero: true }); G.fx.spark(G.combat.centre(t, V()), '#e8fbff', 12, 5, 0.4, 0.15); } })); return 0; },
+  },
+  warden: {
+    light(H, p) { const k = (this.combo = ((this.combo || 0) + 1) % 3); p.play(['punchL', 'punchR', 'heavy'][k], 0.28); H.faceAim(0.4); H.later(0.09, () => { H.cone(5, 90, { dmg: [24, 24, 36][k], knock: [8, 8, 16][k], up: k === 2 ? 4 : 1, kind: 'blunt', color: '#59e0ff' }); H.trail('L', '#59e0ff', 0.2, 0.14); }); return 0.3; },
+    heavy(H, p) {
+      if (!p.grounded) { const at = H.aim(50).point.clone(), dx = at.x - p.pos.x, dz = at.z - p.pos.z, dy = at.y - p.pos.y, T = 0.4; p.vel.set(dx / T, dy / T, dz / T); p.fling = 'leap'; p.play('dropkick', 0.5); this.landing = { r: 7, dmg: 60, up: 6, knock: 14, stun: 1, power: 3 }; return 1.3; }
+      p.play('throw', 0.4); H.later(0.12, () => { const c = waist(p), f = fwdOf(p); H.cone(12, 35, { dmg: 40, knock: 18, up: 3, kind: 'blunt', color: '#59e0ff' }, c, f); for (let i = 1; i <= 4; i++) H.later(i * 0.04, () => G.fx.ring(c.clone().addScaledVector(f, i * 3), '#59e0ff', 0.5, 3, 0.3, f)); }); return 1.4;
+    },
+    p1(H, p) { G.ui.flash('SHIELD STORM', 0.7); H.startChannel(5, 0.2, (u) => { const c = H.centre(); for (let i = 0; i < 8; i++) { const a = G.elapsed * 4 + i * 0.785; G.fx.glow.emit(c.x + Math.cos(a) * 3.2, c.y, c.z + Math.sin(a) * 3.2, 0, 0, 0, '#59e0ff', 0.25, 0.7, 0.4, 0, 0); } H.ball(c, 4.2, { dmg: 10, knock: 6, kind: 'blunt', color: '#59e0ff', civ: false }); void u; }); return 9; },
+    p2(H, p) { const c = H.centre(); for (let i = 0; i < 3; i++) G.villains.eraseNear(c.clone().add(V().set(0, i * 2 - 1, 0)), 7, 6); G.fx.ring(c, '#59e0ff', 1, 8, 6, null, true); this.sanct = 6; G.ui.flash('SANCTUARY', 0.7); return 14; },
+    p3(H, p) { p.play('raise', 0.5); H.hp = Math.min(H.max, H.hp + 60); const c = H.centre(); H.ball(c, 8, { dmg: 15, stun: 2.5, knock: 6, kind: 'shock', color: '#59e0ff', civ: false }); G.fx.ring(c, '#ffffff', 1, 10, 0.5); G.fx.ring(c, '#59e0ff', 1, 8, 0.4); return 12; },
+    ult(H, p) { G.ui.flash('LAST STAND', 1.2); p.play('throw', 0.4); const list = H.nearest(8, 40); if (!list.length) return 0; const seq = []; for (let i = 0; i < 24; i++) seq.push(list[i % list.length]); H.chain(seq, 45, '#59e0ff', 0.08); return 0; },
+  },
+  trine: {
+    light(H, p) { this.flurry = 0.35; p.play(['slash', 'slash2'][(this.combo = ((this.combo || 0) + 1) % 2)], 0.3); H.faceAim(0.35); for (let i = 0; i < 3; i++) H.later(0.04 + i * 0.06, () => { H.cone(5, 120, { dmg: 14, knock: 3, kind: 'cut', color: '#ff9ab0' }); H.arc('#ff9ab0', i % 2 ? 1 : -1, 4); }); return 0.3; },
+    heavy(H, p) { this.flurry = 1.5; p.play('spin', 1.5); H.startChannel(1.5, 0.15, () => { H.ball(H.centre(), 5, { dmg: 12, knock: 4, kind: 'cut', color: '#ff9ab0', civ: false }); H.arc('#ff9ab0', 1, 5); H.arc('#ffffff', -1, 3.5); }, { slow: 0.6 }); return 2.2; },
+    p1(H, p) { const a = H.aim(50), from = H.chest(), d0 = V().subVectors(a.point, from).normalize(); p.play('slash', 0.3); for (let i = -2; i <= 2; i++) { const d = d0.clone(); const s = Math.sin(i * 0.2), c = Math.cos(i * 0.2); d.set(d0.x * c - d0.z * s, d0.y, d0.x * s + d0.z * c); H.later(Math.abs(i) * 0.03, () => H.wave(d, from.clone(), 30, '#ff9ab0')); } return 5; },
+    p2(H, p) { this.counterT = 4; G.ui.flash('COUNTER AURA', 0.7); G.fx.ring(H.centre(), '#ff9ab0', 0.5, 3, 0.5); return 12; },
+    p3(H, p) { const list = H.nearest(5, 25).filter((q) => !q.flying); if (!list.length) return 0; let prev = H.centre();
+      list.forEach((t, i) => H.later(i * 0.14, () => { if (!t.alive) return; const c = G.combat.centre(t, V()), back = V().subVectors(c, prev).setY(0).normalize(); G.fx.beam(prev.clone(), c.clone(), '#ff9ab0', 0.12, 0.3); p.pos.set(t.pos.x + back.x * 1.6, t.pos.y + 0.1, t.pos.z + back.z * 1.6); p.yaw = Math.atan2(back.x, back.z); p.play('dashstab', 0.14); G.combat.hitTarget(t, back, { dmg: 40, knock: 8, kind: 'cut', color: '#ff9ab0', byHero: true }); prev = c; })); return 4; },
+    ult(H, p) { G.ui.flash('THOUSAND CUTS', 1.2); this.flurry = 1.6; p.play('spin', 1.6); for (let i = 0; i < 30; i++) H.later(i * 0.05, () => { const list = [...G.combat.targets].filter((q) => q.alive && q.team === 'villain' && q.pos && q.pos.distanceTo(p.pos) < 15); for (const t of list) { const c = G.combat.centre(t, V()); G.fx.beam(c.clone().add(V().set((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3)), c.clone().add(V().set((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3)), '#ff9ab0', 0.06, 0.15); G.combat.hitTarget(t, V().set(0, 0, 1), { dmg: 7, knock: 0, kind: 'cut', color: '#ff9ab0', byHero: true }); } }); return 0; },
+  },
   raiko: {
     light(H, p) { const k = (this.combo = ((this.combo || 0) + 1) % 2); p.play(k ? 'slash' : 'slash2', 0.26); H.faceAim(0.4); H.later(0.08, () => { const a = H.aim(40), from = H.chest(); H.wave(V().subVectors(a.point, from).normalize(), from, 26, '#c9b8ff'); H.cone(3.5, 90, { dmg: 18, knock: 5, kind: 'shock', color: '#c9b8ff' }); H.trail('B', '#c9b8ff', 0.2, 0.09); }); return 0.3; },
     heavy(H, p) { const list = H.nearest(5, 25).filter((q) => !q.flying); if (!list.length) return 0; G.ui.flash('BLINK CHAIN', 0.6); let prev = H.centre();
