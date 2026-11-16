@@ -386,6 +386,14 @@ export function animateRig(r, dt, anim, speed = 0) {
       T.lean = 0; T.headX = -0.45; T.aL = T.aR = 0.06; T.aLz = 0.15; T.aRz = -0.15; T.eL = T.eR = -0.04; T.lL = T.lR = 0.02; T.kL = 0.04; T.kR = 0.08; k = 10; break;
     case 'jetBrake':   // hard stop: feet swung forward, palms pushed out ahead to fire against the way you were going
       T.lean = -0.12; T.headX = 0.22; T.aL = T.aR = -1.1; T.aLz = 0.36; T.aRz = -0.36; T.eL = T.eR = -0.08; T.lL = -0.55; T.lR = -0.32; T.kL = 0.62; T.kR = 0.34; k = 11; break;
+    // ---- flying without a suit (Zenith): the root is turned along the flight path, as for Forge
+    case 'soar': {   // one fist out ahead, the other arm bent at the side, legs trailing
+      const s = Math.sin(t * 3.2);
+      T.lean = 0.05; T.headX = -1.0; T.aR = -3.0; T.eR = -0.06; T.aRz = 0.06; T.aL = 0.25; T.aLz = 0.2; T.eL = -0.55;
+      T.lL = 0.04 + s * 0.03; T.lR = 0.1 - s * 0.03; T.kL = 0.06; T.kR = 0.3; k = 8; break;
+    }
+    case 'soarBoost':   // flat out: both fists ahead, legs locked together
+      T.lean = 0.03; T.headX = -1.05; T.aL = T.aR = -3.05; T.aLz = -0.08; T.aRz = 0.08; T.eL = T.eR = -0.04; T.lL = T.lR = 0.03; T.kL = 0.03; T.kR = 0.06; k = 7; break;
     case 'swing': T.aR = -2.95; T.eR = -0.05; T.aRz = 0.1; T.aL = -0.5; T.eL = -0.6; T.lL = -0.75; T.kL = 1.1; T.lR = 0.25; T.kR = 0.7; T.lean = 0.15; T.headX = -0.25; k = 10; break;
     case 'webswing': {
       // Strand on a line: the hand on the anchor's side holds it overhead, the other reaches out; the legs

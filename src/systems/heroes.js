@@ -13,6 +13,7 @@ import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
 import { artUrl } from '../world/art.js';
+import { WAVE3 } from './heroes3.js';
 const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 
 const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
@@ -26,6 +27,9 @@ const CD = {
   brann: { light: 0.34, heavy: 1.8, p1: 3, p2: 5, p3: 9 }, bulwark: { light: 0.36, heavy: 1.6, p1: 4, p2: 6, p3: 5 },
   warden: { light: 0.3, heavy: 2.2, p1: 4, p2: 12, p3: 16 }, kitsu: { light: 0.22, heavy: 1.0, p1: 6, p2: 16, p3: 6 },
   trine: { light: 0.3, heavy: 1.6, p1: 2.2, p2: 8, p3: 6 }, ember: { light: 0.3, heavy: 1.4, p1: 4, p2: 12, p3: 16 },
+  tempo: { light: 0.2, heavy: 2.4, p1: 3, p2: 8, p3: 16 }, zenith: { light: 0.34, heavy: 1.6, p1: 9, p2: 7, p3: 7 },
+  ginro: { light: 0.26, heavy: 2.6, p1: 8, p2: 10, p3: 8 }, orbit: { light: 0.3, heavy: 1.8, p1: 10, p2: 6, p3: 16 },
+  lapse: { light: 0.28, heavy: 2.0, p1: 12, p2: 11, p3: 16 }, prism: { light: 0.28, heavy: 1.6, p1: 9, p2: 10, p3: 14 },
 };
 const UP_COST = [400, 900, 1600];
 const DIFF = { easy: { hp: 0.7, dmg: 0.6, raid: 1.4 }, normal: { hp: 1, dmg: 1, raid: 1 }, hard: { hp: 1.4, dmg: 1.4, raid: 0.7 } };
@@ -45,10 +49,14 @@ const SIG = {
   rook: ['Spring slam', 'leap', { r: 9, dmg: 60, color: '#f08a24' }], brann: ['Hammer fall', 'sky', { n: 6, dmg: 40, color: '#8fd3ff', r: 3.5 }],
   bulwark: ['Earthquake', 'nova', { r: 13, dmg: 55, knock: 16, up: 8, color: '#ffb347', quake: true }], warden: ['Shield wall', 'nova', { r: 7, dmg: 10, knock: 20, color: '#5fd6c2', block: 4 }],
   kitsu: ['Clone barrage', 'clones', { n: 6, t: 6 }], trine: ['Dragon cut', 'dash', { dist: 26, dmg: 70, color: '#ff6f8a' }], ember: ['Fire tornado', 'nova', { r: 8, dmg: 40, kind: 'fire', color: '#ff7a1a', fire: true }],
+  tempo: ['Sonic boom', 'nova', { r: 10, dmg: 30, knock: 20, kind: 'shock', color: '#d4ff3a' }], zenith: ['Solar flare', 'nova', { r: 12, dmg: 45, kind: 'fire', color: '#ffc93a' }],
+  ginro: ['Knife storm', 'sky', { n: 8, dmg: 30, color: '#cfd8ee', r: 2.5 }], orbit: ['Meteor swarm', 'sky', { n: 6, dmg: 40, color: '#7d8bff', r: 3 }],
+  lapse: ['Echo strike', 'dash', { dist: 22, dmg: 65, color: '#4be38f' }], prism: ['Rainbow road', 'dash', { dist: 28, dmg: 60, color: '#ff7ae0' }],
 };
 // Which Hero Hall missions (The Three Storms) must be done before a hero can be chosen. A hero you have
 // already played stays unlocked, and code 7103 unlocks them all.
-const UNLOCK = { strand: 0, forge: 0, raiko: 0, sable: 1, rook: 1, brann: 2, bulwark: 2, warden: 3, kitsu: 3, trine: 4, ember: 4 };
+// (the third wave is open from the start)
+const UNLOCK = { strand: 0, forge: 0, raiko: 0, sable: 1, rook: 1, brann: 2, bulwark: 2, warden: 3, kitsu: 3, trine: 4, ember: 4, tempo: 0, zenith: 0, ginro: 0, orbit: 0, lapse: 0, prism: 0 };
 // Heroes with a Higgsfield clip (public/video/hero-<id>.mp4): it plays over the portrait on the card shown
 // when you become them, which then stays up a little longer
 const HERO_CLIPS = new Set(['strand', 'forge', 'raiko', 'sable', 'rook', 'brann', 'bulwark', 'warden', 'kitsu', 'trine', 'ember']);
@@ -59,7 +67,7 @@ export class Heroes {
     this.on = false; this.id = null; this.hp = 100; this.max = 100; this.meter = 0; this.cd = {}; this.ownLook = null; this.gear = [];
     this.saved = {}; this.partner = null; this.timers = []; this.combo = 0; this.comboT = 0; this.mv = null; this.proj = []; this.hounds = []; this.copied = null;
     this.form = 1; this.formT = 0; this.ult = 0; this.shield = 0; this.dodge = 0; this.balloon = 0; this.tired = 0; this.channel = null; this.downT = 0; this.calm = 0;
-    this.v = V(); this.w = V(); this.u = V();
+    this.v = V(); this.w = V(); this.u = V(); this.runs = []; this.g3 = {}; this.timeK = 1;
     this.buildHall(); this.buildHud();
     addEventListener('contextmenu', (e) => { if (this.on && e.target === G.renderer.domElement) e.preventDefault(); });
   }
@@ -215,6 +223,8 @@ export class Heroes {
       else if (this.form === 4) { sp = 1.15; jv = 15; gk = 0.55; sc = 1.3; ck = 1.2; }
     }
     if (this.id === 'bulwark') { sc = this.ult > 0 ? 1.5 : 1 + (this.rage || 0) / 100 * 0.15; ck = this.ult > 0 ? 1.3 : 1; }
+    if (this.id === 'orbit') gk = 0.5;   // she falls at half weight
+    if (this.haste > 0) sp *= 1.5;      // Lapse's haste
     if (this.tired > 0) sp *= 0.55;
     if (this.channel && this.channel.slow) sp *= this.channel.slow;
     p.speedMul = sp; p.jumpV = jv; p.gravK = gk; p.camK = ck * (1 + (this.speedK || 0) * 0.18);   // the camera drops back a little at speed
@@ -279,9 +289,9 @@ export class Heroes {
       add(r.head, B(0.8, 0.018, 0.006), std('#e6ebf2', 0.15, 0.95), -0.22, -0.065, 0.125); add(r.head, B(0.1, 0.03, 0.03), std('#20232c', 0.6, 0.2), 0.14, -0.065, 0.125);
     } else if (id === 'ember') {   // fists that burn
       this.fists = [r.elbL, r.elbR];
-    }
+    } else this.dress3(r, add, B, S);   // the third wave (heroes3.js)
   }
-  clearGear() { for (const m of this.gear) m.removeFromParent(); this.gear.length = 0; this.core = this.shieldMesh = this.blade = this.bladeGlow = this.eyeLens = this.fist = this.tool = this.veins = this.fists = this.jets = null; }
+  clearGear() { for (const m of this.gear) m.removeFromParent(); this.gear.length = 0; this.core = this.shieldMesh = this.blade = this.bladeGlow = this.eyeLens = this.fist = this.tool = this.veins = this.fists = this.jets = null; this.g3 = {}; }
   endPowers() {
     this.ult = 0; this.shield = 0; this.dodge = 0; this.balloon = 0; this.tired = 0; this.channel = null; this.timers.length = 0; this.form = 1; this.combo = 0;
     for (const pr of this.proj) if (pr.orb) pr.orb.life = 0; this.proj.length = 0;
@@ -289,6 +299,7 @@ export class Heroes {
     if (this.guardian) this.guardian.visible = false;
     for (const c of this.clones || []) c.rig.root.removeFromParent(); this.clones = []; this.patches = []; this.block = 0; this.counter = 0; this.flame = 0; this.rage = 0; this.leap = null; this.storm = 0;
     if (this.tool) this.tool.visible = true;
+    this.endPowers3();
   }
 
   // ---- helpers ---------------------------------------------------------------------------------------
@@ -379,10 +390,11 @@ export class Heroes {
     if (this.calm > 6 && this.hp < this.max) this.hp = Math.min(this.max, this.hp + dt * 4);
     this.meter = Math.min(100, this.meter + dt * (this.ult > 0 ? 0 : 0.6));
     if (this.channel) this.stepChannel(dt);
+    this.stepRuns(dt);
     this.stepProjectiles(dt); this.stepHounds(dt, t);
     if (this.downT > 0 || this.reviving) { if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); } this.drawHud(dt); return; }
     this.applyStats(); if (was > 0 && this.balloon <= 0) this.applyStats();
-    this.visuals(dt, t); this.passives(dt, t); this.speedFeel(dt);
+    this.visuals(dt, t); this.passives(dt, t); this.visuals3(dt, t); this.passives3(dt, t); this.speedFeel(dt);
     this.airT = p.grounded ? 0 : (this.airT || 0) + dt;
     const free = (p.state === 'walk' || p.state === 'hero') && !G.ui.menu && !(G.phone && G.phone.open) && !G.minigame && !G.ui.titleOpen;
     if (free) {
@@ -393,6 +405,7 @@ export class Heroes {
         if (this.id === 'strand' && p.state === 'walk') this.tryWall();
       }
       if (this.id === 'strand') this.strandAir(dt, inp);
+      this.moves3(inp, dt);   // the third wave: Tempo's rush, Zenith's flight, Prism's rail, Orbit's float
       // Kitsu: a second jump in the air, off a puff of smoke
       if (this.id === 'kitsu') {
         if (p.grounded) this.dj = false;
@@ -471,7 +484,10 @@ export class Heroes {
     else if (mv.kind === 'zip' || mv.kind === 'rocket') this.zipStep(dt, col);
     else if (mv.kind === 'dash') this.dashStep(dt, col);
     else if (mv.kind === 'strike') this.strikeStep(dt, col);
-    p.speed = Math.hypot(p.vel.x, p.vel.z);
+    else if (mv.kind === 'rush') this.rushStep(dt, inp, col);
+    else if (mv.kind === 'circle') this.circleStep(dt, col);
+    else if (mv.kind === 'slide') this.slideStep(dt, inp, col);
+    p.speed = this.mv && this.mv.kind === 'rush' ? this.mv.v : Math.hypot(p.vel.x, p.vel.z);   // (on a wall Tempo's legs still run at his speed)
   }
   // keep the body out of walls and above the ground; returns true if it touched the ground
   collide(col) {
@@ -726,14 +742,14 @@ export class Heroes {
   // sonic boom. The body banks into turns and pitches into climbs and dives, the boots leave contrails
   // at speed, and coming down fast is a three-point landing that knocks back anyone close.
   flyStep(dt, inp, col) {
-    const p = G.player, mv = this.mv, cp = p.camPitch, cy = p.camYaw, fx = Math.sin(cy), fz = Math.cos(cy);
+    const p = G.player, mv = this.mv, cp = p.camPitch, cy = p.camYaw, fx = Math.sin(cy), fz = Math.cos(cy), Z = this.id === 'zenith';   // Zenith flies the same way, without the suit: faster, no thrusters
     const mz = (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0), mx = (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0), up = (inp.down('Space') ? 1 : 0) - (inp.down('KeyC') ? 1 : 0);
     const boost = (inp.down('ShiftLeft') || inp.down('ShiftRight')) && mz > 0;
     if (!mv.lift) {   // takeoff: a blast ring on the ground and a kick upward
-      mv.lift = true; const g = this.centre(V()); g.y = p.pos.y + 0.1; G.fx.ring(g, '#9ff4ff', 0.3, 4, 0.4); G.fx.dust(g, 12, 1.2); p.vel.y = Math.max(p.vel.y, 7); if (G.sfx) G.sfx.play('whoosh', null, 0.8);
+      mv.lift = true; const g = this.centre(V()); g.y = p.pos.y + 0.1; G.fx.ring(g, Z ? '#ffe9a8' : '#9ff4ff', 0.3, 4, 0.4); G.fx.dust(g, 12, 1.2); p.vel.y = Math.max(p.vel.y, 7); if (G.sfx) G.sfx.play('whoosh', null, 0.8);
     }
     mv.burn = damp(mv.burn || 0, boost ? 1 : 0, boost ? 1.3 : 3, dt);                    // the afterburner spools up
-    const sp = 20 + mv.burn * 42, k = 2.6 + mv.burn * 1.4;
+    const sp = (Z ? 22 : 20) + mv.burn * (Z ? 48 : 42), k = 2.6 + mv.burn * 1.4;
     const tx = (fx * Math.cos(cp) * mz - fz * mx) * sp, ty = -Math.sin(cp) * mz * sp + up * 13, tz = (fz * Math.cos(cp) * mz + fx * mx) * sp;
     p.vel.x = damp(p.vel.x, tx, k, dt); p.vel.y = damp(p.vel.y, ty, 3, dt); p.vel.z = damp(p.vel.z, tz, k, dt);
     if (!mz && !mx && !up) p.vel.y += Math.sin(mv.t * 2.2) * 0.6 * dt;                     // hovering: a gentle bob
@@ -759,7 +775,7 @@ export class Heroes {
     else if (p.vel.y > 8 && hs < 8) anim = 'jetRise';
     else if (hs > 9 || v > 14) anim = mv.burn > 0.5 ? 'jetBoost' : 'jetCruise';
     else anim = 'jetHover';
-    p.anim = anim; mv.pose = anim;
+    p.anim = Z ? { jetHover: 'hover', jetCruise: 'soar', jetBoost: 'soarBoost', jetRise: 'soar', jetBrake: 'jetBrake' }[anim] : anim; mv.pose = anim;
     const bank = clamp(-turn * 0.3, -1.05, 1.05) * clamp((hs - 6) / 14, 0, 1);
     p.tiltT = { x: pitch, z: bank * (1 - Math.min(1, pitch / 1.2)) * 0.6, r: bank * Math.min(1, pitch / 1.2) };   // upright: a sideways lean; lying along the path: a roll
     // the sound barrier: one boom each time you pass 45 m/s
@@ -778,7 +794,8 @@ export class Heroes {
       const set = (j, len) => { j.g.visible = true; const L = len * fl * j.s; j.outer.scale.set(1, L, 1); j.inner.scale.set(1, L * 0.62, 1); j.outer.material.color.set(hot ? '#9fd8ff' : '#4fc4ff'); };
       for (const j of J.boots) set(j, boot); for (const j of J.palms) set(j, palm);
     }
-    if (G.fx) {
+    if (Z) this.flyFx3(mv, v, dt);
+    else if (G.fx) {
       const r = p.rig, trail = v > 26; mv.trail = mv.trail || [V(), V(), false];
       const axis = (bone, y, out) => { const a = bone.localToWorld(this.w.set(0, y, 0.03)), b = bone.localToWorld(out.set(0, y - 0.3, 0.03)); return b.sub(a).normalize(); };
       [r.kneeL, r.kneeR].forEach((kn, i) => {
@@ -799,7 +816,7 @@ export class Heroes {
     const p = G.player; this.endMove(false); p.grounded = true;
     if (drop > 9 || hs > 16) {
       const c = V().set(p.pos.x, p.pos.y + 0.3, p.pos.z); p.vel.set(0, 0, 0); p.play('slam', 0.6);
-      this.ball(c, 4.5, { dmg: 12, knock: 10, up: 4, civ: false }); G.fx.ring(c, '#9ff4ff', 0.5, 6, 0.45); G.fx.ring(c, '#ffffff', 0.3, 3.5, 0.3); G.fx.dust(c, 18, 2);
+      this.ball(c, 4.5, { dmg: 12, knock: 10, up: 4, civ: false }); G.fx.ring(c, this.id === 'zenith' ? '#ffc93a' : '#9ff4ff', 0.5, 6, 0.45); G.fx.ring(c, '#ffffff', 0.3, 3.5, 0.3); G.fx.dust(c, 18, 2);
       G.damage.impact(V().set(c.x, p.pos.y, c.z), V().set(0, 1, 0), 1.6, 'blunt', { byHero: true, quiet: true }); G.fx.shake(0.4); this.sound('boom');
     } else p.play('land', 0.2);
   }
@@ -810,10 +827,10 @@ export class Heroes {
     if (L >= 0.9) {
       p.vel.set(dx / L * sp, dy / L * sp, dz / L * sp);
       const st = Math.min(L, sp * dt); p.pos.x += dx / L * st; p.pos.y += dy / L * st; p.pos.z += dz / L * st;
-      p.yaw = Math.atan2(dx, dz); p.anim = mv.kind === 'rocket' ? 'dash' : 'zip';
+      if (dx * dx + dz * dz > 0.01) p.yaw = Math.atan2(dx, dz); p.anim = mv.anim || (mv.kind === 'rocket' ? 'dash' : 'zip'); if (mv.tilt) p.tiltT = { x: mv.tilt, z: 0 };
       hitGround = this.collide(col);
     }
-    if (L < 0.9 || mv.t > 3 || (hitGround && mv.t > 0.15)) {
+    if (L < 0.9 || mv.t > (mv.T || 3) || (hitGround && mv.t > 0.15)) {
       const end = mv.onEnd; this.endMove(!hitGround);
       const hl = Math.hypot(dx, dz) || 1;
       if (end) end();
@@ -830,11 +847,14 @@ export class Heroes {
       if (G.input.down('Space')) mv.dir.y = Math.min(0.8, mv.dir.y + dt * 1.5);
     }
     if (mv.spin) mv.spin(dt);
-    p.vel.copy(mv.dir).multiplyScalar(mv.speed); p.pos.addScaledVector(mv.dir, mv.speed * dt);
-    const ground = this.collide(col);
+    // short steps, so a fast dash never ends up inside a wall or under the street (a dive from height used to
+    // sink into the ground slab in one frame and be pushed out of its far side)
+    p.vel.copy(mv.dir).multiplyScalar(mv.speed);
+    const sub = Math.max(1, Math.ceil((mv.speed * dt) / 0.4)); let ground = false;
+    for (let i = 0; i < sub; i++) { p.pos.addScaledVector(mv.dir, (mv.speed * dt) / sub); ground = this.collide(col); if (ground && mv.dir.y < -0.3) break; }
     if (mv.hit) { const a = prev.clone().setY(prev.y + 1), b = p.pos.clone().setY(p.pos.y + 1); this.strike({ kind: 'capsule', a, b, r: mv.r || 1.4 }, { ...mv.hit, except: mv.done, dir: mv.dir }); }
     if (mv.trail) mv.trail(prev, p.pos);
-    p.yaw = Math.atan2(mv.dir.x, mv.dir.z); p.anim = mv.anim || 'dash';
+    if (mv.dir.x * mv.dir.x + mv.dir.z * mv.dir.z > 1e-4) p.yaw = Math.atan2(mv.dir.x, mv.dir.z); p.anim = mv.anim || 'dash'; if (mv.tilt) p.tiltT = { x: mv.tilt, z: 0 };   // (straight up or down keeps the facing)
     const moved = prev.distanceTo(p.pos);
     if (mv.t >= mv.T || (moved < mv.speed * dt * 0.3 && mv.t > 0.05)) {
       const end = mv.onEnd; this.endMove(!ground);
@@ -1423,7 +1443,7 @@ export class Heroes {
     if (this.hp <= 0) this.knockedOut();
   }
   knockedOut() {
-    const p = G.player; this.hp = 0; this.downT = 3; this.endMove(); this.channel = null;
+    const p = G.player; this.hp = 0; this.downT = 3; this.endMove(); this.channel = null; this.stopRuns();
     if (this.ult > 0) this.endUlt();
     p.state = 'busy'; p.busyAnim = 'faint'; p.vel.set(0, 0, 0);
     G.ui.flash('KNOCKED OUT', 2.5); G.ui.toast(`${this.H.name} is down. The Hero Hall medics will patch you up.`, 'warn');
@@ -1477,7 +1497,7 @@ export class Heroes {
     const H = this.H, c = H.color, q = (s) => this.hud.querySelector(s);
     q('.hh-name').textContent = `${H.name} · Lv ${this.level()}${this.partner ? ` · G: ${HEROES[this.partner].name}${(this.saved[this.partner] || {}).meter >= 100 ? ' (ready)' : ''}` : ''}`; q('.hh-name').style.color = c;
     const face = q('.hh-face'), src = artUrl(`hero-${this.id}.jpg`); if (src && face.dataset.id !== this.id) { face.src = src; face.dataset.id = this.id; face.style.borderColor = c; } face.style.display = src ? 'block' : 'none';
-    q('.hh-form').textContent = this.id === 'rook' ? (this.ult > 0 ? 'FORM 5' : `Form ${this.form}`) + (this.tired > 0 ? ' · out of breath' : '') : this.id === 'sable' ? (this.copied ? `copied: ${COPY_NAMES[this.copied].split(' (')[0]}` : 'nothing copied yet') : this.mv && this.mv.kind === 'fly' ? 'flying · C to land' : this.ult > 0 ? `ultimate ${Math.ceil(this.ult)} s` : H.title;
+    q('.hh-form').textContent = this.form3() || (this.id === 'rook' ? (this.ult > 0 ? 'FORM 5' : `Form ${this.form}`) + (this.tired > 0 ? ' · out of breath' : '') : this.id === 'sable' ? (this.copied ? `copied: ${COPY_NAMES[this.copied].split(' (')[0]}` : 'nothing copied yet') : this.mv && this.mv.kind === 'fly' ? 'flying · C to land' : this.ult > 0 ? `ultimate ${Math.ceil(this.ult)} s` : H.title);
     const tr = this.training && G.villains; if (tr) { const ml0 = q('.hh-mission'); void ml0; }
     const mm = this.mission(), ml = q('.hh-mission'); ml.textContent = tr ? `Training · ${Math.round(G.villains.trainRate())} damage a second (last 5 s) · ${Math.round(G.villains.trainTotal)} in all` : mm ? `Mission: ${mm.name} · ${mm.goal}` : ''; ml.style.display = tr || mm ? 'block' : 'none';
     q('.hh-hp i').style.width = `${(this.hp / this.max) * 100}%`; q('.hh-hp span').textContent = `${Math.ceil(this.hp)} / ${this.max}`;
@@ -1505,3 +1525,6 @@ export class Heroes {
     const face = this.bossEl.querySelector('.bb-face'), src = b.face ? artUrl(b.face) : null; if (src && face.dataset.f !== b.face) { face.src = src; face.dataset.f = b.face; } face.style.display = src ? 'block' : 'none'; this.bossEl.querySelector('i').style.width = `${Math.max(0, b.hp / b.max) * 100}%`; this.bossEl.querySelector('small').textContent = b.phaseText || '';
   }
 }
+
+// the third wave of heroes: their powers, gear and movement (heroes3.js)
+Object.assign(Heroes.prototype, WAVE3);

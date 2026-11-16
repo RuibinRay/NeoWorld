@@ -125,4 +125,11 @@ const MOVES = {
   kitsu: { light: [['swish', 0, 0.8]], heavy: [['whoosh']], p1: [['whirl'], ['whirl', 0.4, 0.8]], p2: [['poof'], ['poof', 0.08], ['poof', 0.16]], p3: [['poof']], ult: [['whirl'], ['whirl', 0.5], ['boom', 1.0, 0.8]] },
   trine: { light: [['shing', 0, 0.8]], heavy: [['whirl'], ['shing', 0.1], ['shing', 0.3]], p1: [['shing'], ['whoosh', 0.05]], p2: [['shing'], ['shing', 0.2], ['shing', 0.4]], p3: [['clang', 0, 0.6], ['ring', 0.05]], ult: [0, 0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64].map((d) => ['shing', d, 0.7]) },
   ember: { light: [['fire', 0, 0.5]], heavy: [['fireball']], p1: [['fireball'], ['fire', 0.1]], p2: [['roar']], p3: [['roar', 0, 0.8]], ult: [['whistle'], ['boom', 1.2, 1.3]] },
+  // the third wave
+  tempo: { light: [['swish', 0, 0.7]], heavy: [['whirl'], ['zap', 0.3, 0.6]], p1: [['blink'], ['zap', 0.03]], p2: [['charge']], p3: [['sense']], ult: [['zap'], ['zap', 0.4], ['zap', 0.9], ['bolt', 1.3]] },
+  zenith: { light: [['punch', 0, 0.9]], heavy: [['whoosh', 0, 0.7]], p1: [['beam']], p2: [['whoosh'], ['steam', 0.1]], p3: [['whoosh']], ult: [['whoosh'], ['roar', 0.2, 0.6]] },
+  ginro: { light: [['shing', 0, 0.6]], heavy: [['zap'], ['growl', 0.05, 0.7]], p1: [['slam', 0, 0.8]], p2: [['poof'], ['zap', 0.1, 0.6]], p3: [['whirl'], ['roar', 0.1, 0.4]], ult: [['bolt'], ['growl', 0.1], ['roar', 0.2, 0.7]] },
+  orbit: { light: [['blink', 0, 0.5]], heavy: [['warp', 0, 0.7]], p1: [['warp'], ['ring', 0.1, 0.6]], p2: [['slam', 0, 0.5]], p3: [['shield']], ult: [['warp'], ['roar', 0.3, 0.6]] },
+  lapse: { light: [['shing', 0, 0.7]], heavy: [['blink']], p1: [['warp', 0, 0.8], ['blink', 0.1]], p2: [['ring'], ['warp', 0.05, 0.5]], p3: [['sense'], ['charge', 0.05, 0.5]], ult: [['ring'], ['warp', 0.1], ['sense', 0.3]] },
+  prism: { light: [['shing', 0, 0.6]], heavy: [['repulsor']], p1: [['ring'], ['shield', 0.1, 0.5]], p2: [['blink'], ['ring', 0.02, 0.6]], p3: [['shield']], ult: [['charge'], ['sense', 0.2]] },
 };
