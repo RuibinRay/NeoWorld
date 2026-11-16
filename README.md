@@ -703,6 +703,21 @@ Elemental forms:
   Tail sweeps, a spirit bomb, six fox-fire orbs that hunt villains, six clones, a spirit dash, and R:
   Tail Storm, all nine tails striking round her in turn.
 
+The last three:
+- **Strand, Loom Titan**: a 2.8x giant with web strands flickering round the body. Web-fist hammer
+  blows that stick, hurl the nearest villain (or a vehicle), a net cannon, lines that yank six
+  villains into a pile, a skyline leap that lands in a web quake, and R: Cocoon Storm, every villain
+  within 30 m wrapped up and then crushed.
+- **Warden, Aegis Paragon**: six light-shields fanned out like wings, and half the gravity. Shield
+  bashes, a shield dive (or a shield wave on the ground), a storm of eight orbiting shields, a
+  sanctuary dome that stops shots and heals, a rally that heals 60 and stuns, and R: Last Stand, the
+  shield ricocheting 24 times among the villains.
+- **Trine, Blade Asura**: four more arms, a blade in every hand (they whirl faster as she attacks).
+  A six-blade flurry, a blade cyclone, five flying slashes in a fan, a counter aura (4 s: anything
+  that hits her is cut down instead), a severing dash through five villains, and R: Thousand Cuts.
+**Hero Hall ▸ Transformations** lists every hero's form, what it is and its moves, with your meter.
+Every hero transformed, used every form move and the form's R, and turned back with no errors.
+
 Giant blows land low in front of the body (from a giant's chest they first sailed over the robots on
 the street, and the Colossus took 28 s to clear a raid that Bulwark clears in 9). Tested on the
 training robots, damage a second with every move on cooldown, normal against transformed: Forge 68
@@ -736,7 +751,7 @@ him on past it (up a wall, if he grabbed one). Bulwark's leap reaches 80 m and l
 (the air no longer slows it). Kitsu has a second jump in the air. Aiming at the open street now lands
 on it (the crosshair ray used to pass under the ground), which helps every power aimed at the ground.
 
-**Controls:** left click or **Z** light attack (a combo), right click or **X** heavy, **1 2 3**
+**Controls:** left click or **Z** light attack (a combo), right click or **X** heavy, **5** the new skill, **T** transform when its meter is full, **1 2 3**
 powers, **R** ultimate when the meter is full (landing hits fills it). The crosshair aims. On a
 gamepad in Hero Mode: RB light, LB heavy, the d-pad up/right/down for 1/2/3 and left for R.
 
