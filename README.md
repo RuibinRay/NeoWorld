@@ -668,6 +668,31 @@ wall of fire. Tested by script on every hero: every move and key 5 fired with no
 and the three air hits worked for all eleven, Sable returned 72 soaked damage to four gunners, a
 thrown taxi flew and blew up on landing, Warden's wall cut gunfire damage from 81 to 54 over 4 s.
 
+**Transformations (key T)** (`systems/forms.js`). Fighting fills a transform meter under the
+ultimate meter (about two raids' worth of hits dealt and taken). Full, **T** transforms the hero for
+30 s: a bigger body or a new one, 150 armour that takes damage first, no knock-back, and a moveset of
+its own on the same keys; T again turns back early, and a knockout drops you straight back to normal.
+The change takes 1.4 s: you rise in a spiral of light, the new body grows in with a slight overshoot,
+and a shockwave throws villains back. The HUD shows the meter, then the time and armour left; the
+moves page lists the form's moves. First four forms:
+- **Forge, Siegeframe**: a 6 m war robot (a new model: armour, glowing core and visor, missile pods,
+  a gatling right arm, back thrusters; it strides, punches, stomps and aims). Rocket fists, a stomp
+  shockwave, 24 mini-missiles, a gatling burst (the rounds bend onto an enemy near the crosshair),
+  a thruster ram, and R: the core cannon, a 2 s beam from the chest.
+- **Bulwark, Colossus**: 3.5 times his size. Street-shaking punches, a two-fist smash that throws
+  cars, grab the nearest vehicle and throw it, a 28 m thunder clap, a 150 m leap that lands in a
+  quake, and R: Earthsplitter, a fissure along the street.
+- **Rook, Titan Gear**: a 2.8x rubber giant in steam. 10 m stretch punches, a bounce slam, a gatling
+  flurry, a car whip, 8 s of steam overdrive (much faster), and R: a giant fist from the sky.
+- **Sable, Alpha Wolf**: a giant dark wolf with glowing red markings. Claw swipes, a pounce on the
+  nearest villain, a howl that stuns everyone within 15 m, a pack of eight hounds, a shadow dash,
+  and R: Moonfang, five bites and a throw.
+Giant blows land low in front of the body (from a giant's chest they first sailed over the robots on
+the street, and the Colossus took 28 s to clear a raid that Bulwark clears in 9). Tested on the
+training robots, damage a second with every move on cooldown, normal against transformed: Forge 68
+against 138, Bulwark 120 against 286, Rook 85 against 165, Sable 23 against 102. No errors through
+transforming, every form move and turning back.
+
 **Code 7103** (pause menu ▸ Redeem a code): unlimited money (the wallet stays at ◈9,999,999 whatever
 you buy or are fined), unlimited energy, and every hero unlocked. It is saved with your progress and
 can be switched off in the same menu. Being a single-player browser game, the code is in the game's
