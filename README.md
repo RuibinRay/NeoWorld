@@ -839,8 +839,7 @@ Forge outflying them on afterburner in 26 s, and three stuns on foot fining ◈3
 **The third wave of heroes** (`systems/heroes3.js`, data in `data/heroes.js`): six more, open from the
 start (the mission unlocks stay as they were). The first three were asked for by the kind of hero
 (a speedster, a flying powerhouse, a masked ninja of many techniques); the last three are the game's
-own. Each has a Higgsfield portrait (see "From Higgsfield"); they have no card clips yet, so the card
-shown when you become one is the still picture.
+own. Each has a Higgsfield portrait and a card clip (see "From Higgsfield").
 
 | Hero | Light / heavy | 1 | 2 | 3 | R | Moving |
 |---|---|---|---|---|---|---|
@@ -1090,6 +1089,15 @@ heroes you can pick load while the Hero Hall's hero list is open, so they start 
 this public repository (the API takes the picture as a public URL), all eleven at once in about two
 minutes; then re-encoded (H.264, CRF 27, no sound) to 0.4-1 MB each. `HERO_CLIPS` in
 `systems/heroes.js` lists the heroes that have one.
+
+The third wave's six clips were made the same way on 15 November 2026, once their portraits were on
+`main` (same size and length, 5.8 MB together). Tempo sprints at the camera as the city lights streak
+past; Zenith rises through the rain, the sun on his chest brightening; Ginro's scarf streams out as
+the wolves of lightning rear up behind him; Orbit drifts while her rocks lift off the street and
+circle; Lapse raises her blade as the clock's hands turn; Prism glides on her board, the rainbow
+sweeping behind. AI quirks, kept: a second ring appears at Orbit's waist, and Lapse's dark trousers
+turn green as the camera closes in. Tempo's and Ginro's clips have the most movement and were encoded
+at CRF 31 to stay near 1.2 MB (they were 2 MB at 27); the other four are at CRF 27.
 
 **Tested:** the title clip loading and looping; Kurozan's, Shade's, Vektor's and the dragon's
 clips playing on their cards (with reduced motion switched off in the test tab only). No errors.

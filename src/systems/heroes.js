@@ -59,7 +59,7 @@ const SIG = {
 const UNLOCK = { strand: 0, forge: 0, raiko: 0, sable: 1, rook: 1, brann: 2, bulwark: 2, warden: 3, kitsu: 3, trine: 4, ember: 4, tempo: 0, zenith: 0, ginro: 0, orbit: 0, lapse: 0, prism: 0 };
 // Heroes with a Higgsfield clip (public/video/hero-<id>.mp4): it plays over the portrait on the card shown
 // when you become them, which then stays up a little longer
-const HERO_CLIPS = new Set(['strand', 'forge', 'raiko', 'sable', 'rook', 'brann', 'bulwark', 'warden', 'kitsu', 'trine', 'ember']);
+const HERO_CLIPS = new Set(['strand', 'forge', 'raiko', 'sable', 'rook', 'brann', 'bulwark', 'warden', 'kitsu', 'trine', 'ember', 'tempo', 'zenith', 'ginro', 'orbit', 'lapse', 'prism']);
 const COPY_NAMES ={quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', rockets: 'Rocket swarm (drone)', storm: 'Storm breath (Kurozan)', club: 'Club quake (Kurozan)' };
 
 export class Heroes {
