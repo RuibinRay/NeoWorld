@@ -13,6 +13,7 @@ import { std, neon, labelTexture } from '../world/materials.js';
 import { makeDog, animateDog, makeHumanoid, animateRig } from '../entities/rigs.js';
 import { DEFAULT_LOOK } from '../entities/player.js';
 import { artUrl } from '../world/art.js';
+import { Forms } from './forms.js';
 const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 
 const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
@@ -58,6 +59,7 @@ const COPY_NAMES ={quake: 'Quake (brute slam)', volley: 'Bolt volley (gunner)', 
 
 export class Heroes {
   constructor() {
+    this.forms = new Forms(this);   // transformations (systems/forms.js), key T
     this.on = false; this.id = null; this.hp = 100; this.max = 100; this.meter = 0; this.cd = {}; this.ownLook = null; this.gear = [];
     this.saved = {}; this.partner = null; this.timers = []; this.combo = 0; this.comboT = 0; this.mv = null; this.proj = []; this.hounds = []; this.copied = null;
     this.form = 1; this.formT = 0; this.ult = 0; this.shield = 0; this.dodge = 0; this.balloon = 0; this.tired = 0; this.channel = null; this.downT = 0; this.calm = 0;
@@ -155,12 +157,13 @@ export class Heroes {
     G.ui.openMenu({ title: `${this.H.name}'s costume`, who: `level ${lv}`, options: [...opts.map(([n, k, need]) => ({ label: `${(this.costume || 0) === k ? '✓ ' : ''}${n}`, desc: lv >= need ? '' : `unlocks at level ${need}`, onPick: () => { if (lv < need) { G.ui.toast(`${n} unlocks at level ${need}.`, 'info'); return this.costumeMenu(); } this.st.costume = this.st.costume || {}; this.st.costume[this.id] = k; this.become(this.id, { keep: true }); } })), { label: 'Back', onPick: () => this.menu() }] });
   }
   movesMenu() {
-    const h = this.H;
-    G.ui.openMenu({ title: `${h.name}'s moves`, who: h.title, wide: true, html: h.moves.map(([k, d]) => `<p style="margin:0 0 6px"><b>${k}</b> <span style="color:var(--dim)">· ${d}</span></p>`).join(''), options: [{ label: 'Back', onPick: () => this.menu() }, { label: 'Close', onPick: () => {} }] });
+    const h = this.H, F = this.forms.on || this.forms.def(), list = this.forms.on ? F.moves : [...h.moves, ...(F ? [['T ' + F.name, `Transform (when the meter is full): ${F.blurb}, 30 s`], ...F.moves.map(([k, d]) => [`  ${F.name} ${k}`, d])] : [])];
+    G.ui.openMenu({ title: `${h.name}'s moves`, who: h.title, wide: true, html: list.map(([k, d]) => `<p style="margin:0 0 6px"><b>${k}</b> <span style="color:var(--dim)">· ${d}</span></p>`).join(''), options: [{ label: 'Back', onPick: () => this.menu() }, { label: 'Close', onPick: () => {} }] });
   }
 
   // ---- becoming a hero, and back ----------------------------------------------------------------------
   become(id, o = {}) {
+    if (this.forms) this.forms.end(true);
     const p = G.player;
     if (p.state === 'sit') p.stand();
     if (p.state !== 'walk' && p.state !== 'hero') { G.ui.toast('Finish what you are doing first.', 'warn'); return; }
@@ -195,6 +198,7 @@ export class Heroes {
     G.ui.setHelp && G.ui.setHelp();
   }
   leave(quiet) {
+    this.forms.end(true);
     if (!this.on) return;
     const p = G.player;
     this.endMove(); this.endPowers(); this.clearGear();
@@ -217,6 +221,7 @@ export class Heroes {
       else if (this.form === 4) { sp = 1.15; jv = 15; gk = 0.55; sc = 1.3; ck = 1.2; }
     }
     if (this.id === 'bulwark') { sc = this.ult > 0 ? 1.5 : 1 + (this.rage || 0) / 100 * 0.15; ck = this.ult > 0 ? 1.3 : 1; }
+    const fs = this.forms && this.forms.stats(); if (fs) { sc = fs.sc; sp = fs.sp; jv = fs.jv; ck = fs.ck; gk = 1; }   // transformed (or changing)
     if (this.tired > 0) sp *= 0.55;
     if (this.channel && this.channel.slow) sp *= this.channel.slow;
     p.speedMul = sp; p.jumpV = jv; p.gravK = gk; p.camK = ck * (1 + (this.speedK || 0) * 0.18);   // the camera drops back a little at speed
@@ -314,7 +319,7 @@ export class Heroes {
   strike(shape, o) { return G.combat.strike(shape, { byHero: true, ...o }); }
   cone(range, deg, o, from = this.chest(), dir = this.fwd()) { return this.strike({ kind: 'cone', o: from, dir, range, cos: Math.cos((deg * Math.PI) / 180) }, o); }
   ball(c, r, o) { return this.strike({ kind: 'sphere', c, r }, o); }
-  charge(k) { if (this.on && this.ult <= 0) this.meter = Math.min(100, this.meter + k); if (this.on) this.addXp(k * 0.3); if (this.partner) { const sv = this.saved[this.partner] || (this.saved[this.partner] = { hp: 1, meter: 0 }); sv.meter = Math.min(100, sv.meter + k * 0.5); } }
+  charge(k) { if (this.on && this.ult <= 0) this.meter = Math.min(100, this.meter + k); if (this.on) this.forms.gain(k * 0.2); if (this.on) this.addXp(k * 0.3); if (this.partner) { const sv = this.saved[this.partner] || (this.saved[this.partner] = { hp: 1, meter: 0 }); sv.meter = Math.min(100, sv.meter + k * 0.5); } }
   // ---- hero levels: experience from fighting, raids and bosses -----------------------------------------
   level(id = this.id) { const x = ((this.st.xp || {})[id]) || 0; return 1 + XP_AT.filter((n) => x >= n).length; }
   addXp(n) {
@@ -385,13 +390,14 @@ export class Heroes {
     this.stepProjectiles(dt); this.stepHounds(dt, t);
     if (this.downT > 0 || this.reviving) { if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); } this.drawHud(dt); return; }
     this.applyStats(); if (was > 0 && this.balloon <= 0) this.applyStats();
-    this.visuals(dt, t); this.passives(dt, t); this.extras(dt, t); this.speedFeel(dt);
+    this.visuals(dt, t); this.passives(dt, t); this.extras(dt, t); this.forms.update(dt, t); this.speedFeel(dt);
     this.punchKick = Math.max(0, (this.punchKick || 0) - dt * 28);
     this.airT = p.grounded ? 0 : (this.airT || 0) + dt;
     const free = (p.state === 'walk' || p.state === 'hero') && !G.ui.menu && !(G.phone && G.phone.open) && !G.minigame && !G.ui.titleOpen;
     if (free) {
       // movement powers that start from walking
-      if (p.state === 'walk' && !p.grounded && !p.swim) {
+      if (inp.pressed('KeyT')) this.forms.toggle();
+      if (p.state === 'walk' && !p.grounded && !p.swim && !this.forms.active) {
         if (this.id === 'strand' && inp.pressed('Space')) this.startSwing();
         else if (this.id === 'forge' && inp.pressed('Space')) this.startMove('fly', {});
         if (this.id === 'strand' && p.state === 'walk') this.tryWall();
@@ -418,6 +424,7 @@ export class Heroes {
   }
   use(slot) {
     const id = this.id;
+    if (this.forms.active) { if (this.forms.on) this.forms.use(slot); return; }   // transformed: the form's own moves (nothing while changing)
     if (this.tired > 0 && slot !== 'light') { G.ui.toast('Out of breath: give it a moment.', 'info'); return; }
     if (slot === 'ult') {
       if (this.ult > 0) return;
@@ -1477,6 +1484,7 @@ export class Heroes {
     this.mines = []; this.turrets = []; this.cages = []; this.walls = []; this.mirror = 0;
   }
   signature() {
+    if (this.forms.active) return;
     if (this.level() < 4) { if (!(this.cd.sigMsg > 0)) { G.ui.toast(`${this.H.name}'s signature move unlocks at level 4 (now level ${this.level()}).`, 'info'); this.cd.sigMsg = 3; } return; }
     if (!this.ready('sig')) return;
     const [name, kind, o] = SIG[this.id], p = G.player, c = this.centre(); this.cool('sig', 14); G.ui.flash(name.toUpperCase(), 1.1); this.sound('power');
@@ -1496,6 +1504,7 @@ export class Heroes {
   }
   // ---- the partner: G swaps heroes mid-fight; R with both meters full is a team strike -------------------
   swap() {
+    if (this.forms.active) return;
     if (!this.partner) { if (!(this.cd.swapMsg > 0)) { G.ui.toast('No partner yet: choose one at the Hero Hall (Partner).', 'info'); this.cd.swapMsg = 3; } return; }
     if (!this.ready('swap') || this.mv || this.channel) return;
     if (!this.unlocked(this.partner)) { G.ui.toast(`${HEROES[this.partner].name} is locked. ${this.lockText(this.partner)}.`, 'warn'); return; }
@@ -1545,6 +1554,8 @@ export class Heroes {
     if (this.block > 0 && o.src && o.src.hit) o.src.hit(dmg * 0.6, V().copy(dir).negate(), { knock: 6, byHero: true });
     if (this.flame > 0 && o.src && o.src.hit) o.src.hit(6, V().copy(dir).negate(), { kind: 'fire', byHero: true });
     let k = 1; if (this.shield > 0) k = 0.2; if (this.block > 0) k = 0.2; if (this.flame > 0) k = 0.25; if (this.id === 'bulwark') { this.rage = Math.min(100, (this.rage || 0) + dmg * 0.8); if (this.ult > 0) k = 0.6; } if (this.id === 'raiko' && this.ult > 0) k = 0.1; if (this.id === 'rook' && this.ult > 0) k = 0.45; if (this.id === 'rook' && this.form === 4) k *= 0.7;
+    if (this.forms.active) { const left = this.forms.soak(dmg * k); o = { ...o, knock: 0, up: 0 }; if (left <= 0) { G.fx.spark(this.centre(), this.forms.form.color, 6, 3, 0.2, 0.1); return; } dmg = left; k = 1; }   // the form's armour soaks it first; nothing knocks a form back
+    else this.forms.gain(dmg * k * 0.12);
     this.hp -= dmg * k; this.calm = 0;
     const kn = (o.knock || 0) * (this.ult > 0 ? (this.id === 'bulwark' ? 0 : 0.3) : 1) * (this.block > 0 ? 0.3 : 1);
     if (p.state === 'walk' || p.state === 'hero') { if (this.mv && this.mv.kind !== 'fly' && kn > 6) this.endMove(); p.vel.x += dir.x * kn; p.vel.z += dir.z * kn; if (kn > 6 || o.up) { p.vel.y = Math.max(p.vel.y, (o.up || 0) + kn * 0.2); p.grounded = false; } }
@@ -1554,6 +1565,7 @@ export class Heroes {
     if (this.hp <= 0) this.knockedOut();
   }
   knockedOut() {
+    this.forms.end(true);
     const p = G.player; this.hp = 0; this.downT = 3; this.endMove(); this.channel = null;
     if (this.ult > 0) this.endUlt();
     p.state = 'busy'; p.busyAnim = 'faint'; p.vel.set(0, 0, 0);
@@ -1595,7 +1607,7 @@ export class Heroes {
   // ---- HUD -------------------------------------------------------------------------------------------
   buildHud() {
     const root = G.ui.root, mk = (id, html) => { const e = document.createElement('div'); e.id = id; e.innerHTML = html; root.appendChild(e); e.style.display = 'none'; return e; };
-    this.hud = mk('hero-hud', '<img class="hh-face" alt=""><div class="hh-mission"></div><div class="hh-top"><b class="hh-name"></b><span class="hh-form"></span></div><div class="hh-bar hh-hp"><i></i><span></span></div><div class="hh-bar hh-meter"><i></i><span></span></div><div class="hh-moves"></div>');
+    this.hud = mk('hero-hud', '<img class="hh-face" alt=""><div class="hh-mission"></div><div class="hh-top"><b class="hh-name"></b><span class="hh-form"></span></div><div class="hh-bar hh-hp"><i></i><span></span></div><div class="hh-bar hh-meter"><i></i><span></span></div><div class="hh-bar hh-tf"><i style="background:linear-gradient(90deg,#ffb347,#ff5a6e)"></i><span></span></div><div class="hh-moves"></div>');
     this.cross = mk('hero-cross', '');
     this.bossEl = mk('boss-bar', '<img class="bb-face" alt=""><b></b><div class="bb"><i></i></div><small></small>');
     this.foeEl = mk('foe-bar', '<b></b><div class="bb"><i></i></div>');
@@ -1613,8 +1625,10 @@ export class Heroes {
     const mm = this.mission(), ml = q('.hh-mission'); ml.textContent = tr ? `Training · ${Math.round(G.villains.trainRate())} damage a second (last 5 s) · ${Math.round(G.villains.trainTotal)} in all` : mm ? `Mission: ${mm.name} · ${mm.goal}` : ''; ml.style.display = tr || mm ? 'block' : 'none';
     q('.hh-hp i').style.width = `${(this.hp / this.max) * 100}%`; q('.hh-hp span').textContent = `${Math.ceil(this.hp)} / ${this.max}`;
     q('.hh-meter i').style.width = `${this.meter}%`; q('.hh-meter i').style.background = this.meter >= 100 ? c : ''; q('.hh-meter span').textContent = this.ult > 0 ? `${Math.ceil(this.ult)} s` : this.meter >= 100 ? 'R: ULTIMATE READY' : `ultimate ${Math.floor(this.meter)}%`;
-    const names = Object.fromEntries(H.moves.map(([k, d]) => [k.split(' ')[0], k.slice(2)]));
-    q('.hh-moves').innerHTML = ['p1', 'p2', 'p3', 'p5'].map((s, i) => { const left = Math.max(0, this.cd[s] || 0), full = (CD[this.id][s] || 1), key = s.slice(1); void i; return `<div class="hm${left > 0 ? ' cd' : ''}"><kbd>${key}</kbd><span>${names[key] || ''}</span><i style="width:${(left / full) * 100}%"></i></div>`; }).join('') + (this.level() >= 4 ? `<div class="hm${this.cd.sig > 0 ? ' cd' : ''}"><kbd>4</kbd><span>${SIG[this.id][0]}</span><i style="width:${(Math.max(0, this.cd.sig || 0) / 14) * 100}%"></i></div>` : '');
+    const F = this.forms, tf = q('.hh-tf');
+    if (tf) { const on = F.on || F.seq; tf.querySelector('i').style.width = `${on ? (F.on ? (F.t / 30) * 100 : 100) : F.meter}%`; tf.querySelector('span').textContent = !F.def() ? 'no transformation yet' : F.on ? `${F.on.name} · ${Math.ceil(F.t)} s · armour ${Math.ceil(F.armour)}` : F.seq ? 'transforming…' : F.meter >= 100 ? `T: TRANSFORM (${F.def().name})` : `transform ${Math.floor(F.meter)}%`; }
+    const names = Object.fromEntries((F.on ? F.on.moves : H.moves).map(([k, d]) => [k.split(' ')[0], k.slice(2)]));
+    q('.hh-moves').innerHTML = (F.on ? ['p1', 'p2', 'p3'] : ['p1', 'p2', 'p3', 'p5']).map((s, i) => { const left = Math.max(0, this.cd[(F.on ? 'f' : '') + s] || 0), full = (F.on ? 8 : CD[this.id][s] || 1), key = s.slice(1); void i; return `<div class="hm${left > 0 ? ' cd' : ''}"><kbd>${key}</kbd><span>${names[key] || ''}</span><i style="width:${(left / full) * 100}%"></i></div>`; }).join('') + (this.level() >= 4 ? `<div class="hm${this.cd.sig > 0 ? ' cd' : ''}"><kbd>4</kbd><span>${SIG[this.id][0]}</span><i style="width:${(Math.max(0, this.cd.sig || 0) / 14) * 100}%"></i></div>` : '');
     // the enemy you hit last
     const f = G.combat.lastHit;
     if (f && f.alive && !f.boss) { this.foeEl.style.display = 'block'; this.foeEl.querySelector('b').textContent = f.name; this.foeEl.querySelector('i').style.width = `${Math.max(0, f.hp / f.max) * 100}%`; } else this.foeEl.style.display = 'none';
