@@ -94,7 +94,7 @@ export class Wrecks {
   explode(s) {
     if (s.dead) return;
     const c = this.centre(s, V()).clone(), big = s.type === 'truck' ? 1.4 : s.type === 'van' ? 1.15 : 1;
-    s.dead = true; s.burning = false; s.wreckT = 0; s.hp = 0; s.wx = s.x; s.wy = s.y || 0; s.wz = s.z; s.wyaw = s.yaw; this.blown++;
+    s.dead = true; s.burning = false; s.wreckT = 0; s.hp = 0; s.wx = s.x; s.wy = Math.max(0, s.y || 0); s.wz = s.z; s.wyaw = s.yaw; this.blown++;
     G.fleet.recolor(s, CHAR); G.fleet.place(s, s.x, s.y || 0, s.z, s.yaw);
     if (s.pod) s.pod.v = 0;
     // the blast: fire, smoke, a flash, a scorch on the street and nearby walls
@@ -134,12 +134,33 @@ export class Wrecks {
       if (n.isNear && shouted < 1 && Math.random() < 0.5) { shouted++; G.ui.say(n, n.android ? 'Vehicle fire. Keep clear.' : n.child ? 'Fire!' : ['Get back, it\'s going to blow!', 'Fire! Move!', 'Somebody call it in!'][Math.floor(Math.random() * 3)]); }
     }
   }
+  // Bulwark's car toss: the vehicle leaves its lane and flies (it is held as 'dead' so its traffic system
+  // leaves it alone and the fleet draws it where this says), hits what it passes, and goes up where it lands
+  throwVehicle(s, from, vel, o = {}) {
+    if (s.dead) return false; this.init(s);
+    s.dead = true; s.thrown = { vel: vel.clone(), t: 0, o, done: new Set() }; s.wx = from.x; s.wy = from.y; s.wz = from.z; s.wyaw = s.yaw; s.hold = 99; if (s.pod) s.pod.v = 0;
+    this.hot.add(s); return true;
+  }
+  stepThrown(s, dt) {
+    const th = s.thrown; th.t += dt; th.vel.y -= 18 * dt; s.wx += th.vel.x * dt; s.wy += th.vel.y * dt; s.wz += th.vel.z * dt; s.wyaw += dt * 4;
+    G.fleet.place(s, s.wx, s.wy, s.wz, s.wyaw);
+    const c = V().set(s.wx, s.wy + 0.8, s.wz);
+    if (G.combat) for (const t of G.combat.targets) { if (!t.alive || th.done.has(t) || t.team !== 'villain') continue; if (G.combat.centre(t, this.v).distanceTo(c) < 2.6 + (t.r || 0)) { th.done.add(t); t.hit(45, V().copy(th.vel).setY(0).normalize(), { knock: 14, up: 5, byHero: true, kind: 'blunt' }); } }
+    if (Math.random() < dt * 20 && G.fx) G.fx.dust(c, 1, 0.5);
+    const g = G.colliders.groundAt(s.wx, s.wz, s.wy + 1, 2, 0.3), wall = G.colliders.raycast(c.x, c.y, c.z, Math.sign(th.vel.x) * 0.7, 0, Math.sign(th.vel.z) * 0.7, 1.2) < 1.2;
+    if (s.wy <= g || wall || th.t > 4) {   // down: it blows up where it lands
+      s.wy = Math.max(s.wy, g); s.thrown = null; s.dead = false; s.burning = false; s.hold = 0;
+      G.fleet.place(s, s.wx, s.wy, s.wz, s.wyaw); s.x = s.wx; s.y = s.wy; s.z = s.wz; s.yaw = s.wyaw;
+      this.hurt(s, 1e4, th.o); s.fuse = 0;
+    }
+  }
   // a stopped vehicle: the traffic systems ask this before they move one
   stopped(s) { return !!(s && (s.dead || s.burning || s.hold > 0)); }
   update(dt) {
     if (!this.hot.size) return;
     const cam = G.camera.matrixWorld.elements, cx = cam[12], cz = cam[14], fx = -cam[8], fz = -cam[10], fl = Math.hypot(fx, fz) || 1;
     for (const s of this.hot) {
+      if (s.thrown) { this.stepThrown(s, dt); continue; }
       s.hold = Math.max(0, (s.hold || 0) - dt);
       const c = this.centre(s, this.v), near = (c.x - G.player.pos.x) ** 2 + (c.z - G.player.pos.z) ** 2 < 300 * 300;
       if (s.dead) {

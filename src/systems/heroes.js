@@ -16,16 +16,18 @@ import { artUrl } from '../world/art.js';
 const poss = (k) => { const c = VILLAINS[k].crew; return c.endsWith('s') ? c + "'" : c + "'s"; };   // Kurozan's crew's, Vektor's drones', The Shadow Clan's
 
 const V = () => new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
-const SLOTS = ['p1', 'p2', 'p3', 'ult'];
-const KEYS = { p1: 'Digit1', p2: 'Digit2', p3: 'Digit3', ult: 'KeyR' };
+const SLOTS = ['p1', 'p2', 'p3', 'p5', 'ult'];
+// which limb leaves the trail for each attack pose: R / L fists, F the foot, B the blade
+const TRAIL_PART = { punchL: 'L', kick: 'F', roundhouse: 'F', spinkick: 'F', dropkick: 'F', slash: 'B', slash2: 'B', dashstab: 'B', spin: 'F' };
+const KEYS = { p1: 'Digit1', p2: 'Digit2', p3: 'Digit3', p5: 'Digit5', ult: 'KeyR' };
 // cooldowns (s) per hero and power
 const CD = {
-  strand: { light: 0.3, heavy: 1.2, p1: 1.0, p2: 4, p3: 16 }, forge: { light: 0.3, heavy: 1.2, p1: 8, p2: 11, p3: 16 },
-  raiko: { light: 0.32, heavy: 1.4, p1: 4, p2: 10, p3: 5 }, sable: { light: 0.3, heavy: 1.2, p1: 7, p2: 18, p3: 12 },
-  rook: { light: 0.3, heavy: 1.6, p1: 1.5, p2: 1, p3: 12 },
-  brann: { light: 0.34, heavy: 1.8, p1: 3, p2: 5, p3: 9 }, bulwark: { light: 0.36, heavy: 1.6, p1: 4, p2: 6, p3: 5 },
-  warden: { light: 0.3, heavy: 2.2, p1: 4, p2: 12, p3: 16 }, kitsu: { light: 0.22, heavy: 1.0, p1: 6, p2: 16, p3: 6 },
-  trine: { light: 0.3, heavy: 1.6, p1: 2.2, p2: 8, p3: 6 }, ember: { light: 0.3, heavy: 1.4, p1: 4, p2: 12, p3: 16 },
+  strand: { light: 0.3, heavy: 1.2, p1: 1.0, p2: 4, p3: 16, p5: 8 }, forge: { light: 0.3, heavy: 1.2, p1: 8, p2: 11, p3: 16, p5: 18 },
+  raiko: { light: 0.32, heavy: 1.4, p1: 4, p2: 10, p3: 5, p5: 14 }, sable: { light: 0.3, heavy: 1.2, p1: 7, p2: 18, p3: 12, p5: 14 },
+  rook: { light: 0.3, heavy: 1.6, p1: 1.5, p2: 1, p3: 12, p5: 12 },
+  brann: { light: 0.34, heavy: 1.8, p1: 3, p2: 5, p3: 9, p5: 9 }, bulwark: { light: 0.36, heavy: 1.6, p1: 4, p2: 6, p3: 5, p5: 10 },
+  warden: { light: 0.3, heavy: 2.2, p1: 4, p2: 12, p3: 16, p5: 16 }, kitsu: { light: 0.22, heavy: 1.0, p1: 6, p2: 16, p3: 6, p5: 7 },
+  trine: { light: 0.3, heavy: 1.6, p1: 2.2, p2: 8, p3: 6, p5: 12 }, ember: { light: 0.3, heavy: 1.4, p1: 4, p2: 12, p3: 16, p5: 14 },
 };
 const UP_COST = [400, 900, 1600];
 const DIFF = { easy: { hp: 0.7, dmg: 0.6, raid: 1.4 }, normal: { hp: 1, dmg: 1, raid: 1 }, hard: { hp: 1.4, dmg: 1.4, raid: 0.7 } };
@@ -283,6 +285,7 @@ export class Heroes {
   }
   clearGear() { for (const m of this.gear) m.removeFromParent(); this.gear.length = 0; this.core = this.shieldMesh = this.blade = this.bladeGlow = this.eyeLens = this.fist = this.tool = this.veins = this.fists = this.jets = null; }
   endPowers() {
+    this.clearExtras();
     this.ult = 0; this.shield = 0; this.dodge = 0; this.balloon = 0; this.tired = 0; this.channel = null; this.timers.length = 0; this.form = 1; this.combo = 0;
     for (const pr of this.proj) if (pr.orb) pr.orb.life = 0; this.proj.length = 0;
     for (const h of this.hounds) h.rig.root.removeFromParent(); this.hounds.length = 0;
@@ -382,7 +385,8 @@ export class Heroes {
     this.stepProjectiles(dt); this.stepHounds(dt, t);
     if (this.downT > 0 || this.reviving) { if (this.downT > 0) { this.downT -= dt; if (this.downT <= 0) this.revive(); } this.drawHud(dt); return; }
     this.applyStats(); if (was > 0 && this.balloon <= 0) this.applyStats();
-    this.visuals(dt, t); this.passives(dt, t); this.speedFeel(dt);
+    this.visuals(dt, t); this.passives(dt, t); this.extras(dt, t); this.speedFeel(dt);
+    this.punchKick = Math.max(0, (this.punchKick || 0) - dt * 28);
     this.airT = p.grounded ? 0 : (this.airT || 0) + dt;
     const free = (p.state === 'walk' || p.state === 'hero') && !G.ui.menu && !(G.phone && G.phone.open) && !G.minigame && !G.ui.titleOpen;
     if (free) {
@@ -420,13 +424,22 @@ export class Heroes {
       if (this.partner && this.meter >= 100 && (this.saved[this.partner] || {}).meter >= 100) { this.meter = 0; this.teamStrike(); return; }
       if (this.meter < 100) { if (this.cd.ultMsg <= 0 || this.cd.ultMsg === undefined) { G.ui.toast(`Ultimate not ready: ${Math.floor(this.meter)}%. Land hits to fill the meter.`, 'info'); this.cd.ultMsg = 3; } return; }
       this.quietMove = true; let ok; try { ok = this[`${id}Ult`](); } finally { this.quietMove = false; }
-      if (ok !== false) { this.meter = 0; if (G.sfx) { G.sfx.play('power', null, 0.7); G.sfx.move(id, 'ult'); } if (G.voice) G.voice.shout(this.H, 'ult'); }
+      if (ok !== false) { this.meter = 0; this.kick(7); if (G.sfx) { G.sfx.play('power', null, 0.7); G.sfx.move(id, 'ult'); } if (G.voice) G.voice.shout(this.H, 'ult'); }
       return;
     }
+    const P = G.player;
+    // three quick light hits on the ground, then heavy: the launcher; light in the air after it: the air combo
+    if (slot === 'heavy' && this.launchReady > G.elapsed && (P.grounded || P.vel.y < 4) && P.state === 'walk' && this.ready('heavy')) { this.launcher(); return; }
+    if (slot === 'light' && this.airCombo > G.elapsed && !P.grounded && P.state === 'walk' && this.ready('light')) { this.airHit(); return; }
     if (!this.ready(slot)) return;
     const fn = this[`${id}${slot[0].toUpperCase()}${slot.slice(1)}`];
     this.quietMove = true; let ok; try { ok = fn && fn.call(this); } finally { this.quietMove = false; }
-    if (fn && ok !== false) { if (G.sfx) G.sfx.move(id, slot); }
+    if (fn && ok !== false) {
+      if (G.sfx) G.sfx.move(id, slot);
+      if (slot === 'light') { this.lights = G.elapsed - (this.lastLightT || 0) < 0.9 ? (this.lights || 0) + 1 : 1; this.lastLightT = G.elapsed; if (this.lights >= 3) this.launchReady = G.elapsed + 0.75; }
+      if (slot === 'light' || slot === 'heavy') { const an = P.emote ? P.emote.anim : ''; this.trail(TRAIL_PART[an] || 'R', this.H.color, slot === 'heavy' ? 0.32 : 0.2, slot === 'heavy' ? 0.1 : 0.07); }
+      this.kick(slot === 'heavy' ? 2.5 : slot === 'light' ? 0.6 : 1.5);
+    }
     if (fn && ok !== false) this.cool(slot, (slot === 'light' && this.id === 'rook' && this.form === 3 ? 0.8 : CD[id][slot]) || 0.3);
   }
   // a damaging power that lasts a while (beams, fire, flurries): fn(k) every `every` seconds for `secs`
@@ -896,7 +909,7 @@ export class Heroes {
     if (!best) { p.play('kick', 0.3); this.later(0.1, () => this.cone(2.8, 70, { dmg: 16, knock: 9, up: 3 })); return; }
     G.fx.beam((v) => this.hand(v), (v) => G.combat.centre(best, v), '#e8fbff', 0.03, 0.35);
     best.hit(0, this.v.subVectors(c, G.combat.centre(best, this.w)).setY(0).normalize(), { knock: Math.min(60, Math.max(0, bd - 1.6) * 5), up: 0, pull: true, byHero: true });   // slides to a stop about 1.6 m in front
-    this.later(0.32, () => { p.play('heavy', 0.3); this.ball(this.chest().addScaledVector(this.fwd(), 1.6), 1.8, { dmg: 34, knock: 11, up: 6, kind: 'blunt' }); G.fx.ring(this.chest(), '#3fe0c5', 0.3, 3, 0.3); });
+    this.later(0.32, () => { p.play('smash', 0.34); this.ball(this.chest().addScaledVector(this.fwd(), 1.6), 1.8, { dmg: 34, knock: 11, up: 6, kind: 'blunt' }); G.fx.ring(this.chest(), '#3fe0c5', 0.3, 3, 0.3); });
   }
   strandP1() {
     const a = this.aim(48), p = G.player; this.faceAim(0.4); p.play('castR', 0.3); this.sound('web');
@@ -955,7 +968,7 @@ export class Heroes {
     });
   }
   forgeP2() {
-    G.player.play('cast', 2.3); this.faceAim(2.3); G.ui.flash('CHEST BEAM', 0.8); this.sound('power');
+    G.player.play('beam', 2.3); this.faceAim(2.3); G.ui.flash('CHEST BEAM', 0.8); this.sound('power');
     let wallT = 0;
     this.startChannel(2.2, 0.08, () => {
       this.faceAim(0.3); const from = this.core ? this.core.getWorldPosition(V()) : this.chest(), a = this.aim(70), to = a.point.clone(), d = this.v.subVectors(to, from).normalize();
@@ -966,11 +979,11 @@ export class Heroes {
     }, { slow: 0.15 });
   }
   forgeP3() {
-    const c = this.centre(); this.shield = 6; G.player.play('raise', 0.4);
+    const c = this.centre(); this.shield = 6; G.player.play('roar', 0.45);
     this.ball(c, 7, { dmg: 15, knock: 13, up: 5, kind: 'energy', color: '#9ff4ff' }); G.fx.ring(c, '#9ff4ff', 0.5, 8, 0.5); G.fx.blast(c, '#9ff4ff', 0.5, 3, 0.3); this.sound('boom');
   }
   forgeUlt() {
-    const p = G.player; p.vel.y = 7; p.grounded = false; p.play('raise', 1.1); G.ui.flash('OVERLOAD', 1.2);
+    const p = G.player; p.vel.y = 7; p.grounded = false; p.play('transform', 1.1); G.ui.flash('OVERLOAD', 1.2);
     for (let i = 0; i < 10; i++) this.later(i * 0.09, () => G.fx.spray(this.centre(), this.v.set(0, 0, 0), '#bff8ff', 6, -5, 2.5, 0.4, 0.2, 0.04));
     this.later(1.0, () => {
       const c = this.centre(); this.ball(c, 20, { dmg: 90, knock: 19, up: 8, kind: 'energy', color: '#bff8ff' });
@@ -989,7 +1002,7 @@ export class Heroes {
   }
   raikoHeavy() {
     const p = G.player; this.faceAim(0.4);
-    if (this.ult > 0) { const a = this.aim(120), h = this.hand(); p.play('castR', 0.3); this.sound('zap'); this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 95, r: 0.45, color: '#c9b8ff', dmg: 70, knock: 14, kind: 'shock', blast: 5, power: 4, life: 1.6, trail: '#a78bff' }); return; }
+    if (this.ult > 0) { const a = this.aim(120), h = this.hand(); p.play('dashstab', 0.32); this.sound('zap'); this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 95, r: 0.45, color: '#c9b8ff', dmg: 70, knock: 14, kind: 'shock', blast: 5, power: 4, life: 1.6, trail: '#a78bff' }); return; }
     const f = this.fwd(V(), 0.2), from = p.pos.clone();
     this.startMove('dash', { dir: f, speed: 26, T: 0.16, done: new Set(), hit: { dmg: 28, knock: 9, up: 2, kind: 'shock', color: '#c9b8ff' }, r: 1.2, trail: (a, b) => G.fx.bolt(a.clone().setY(a.y + 1), b.clone().setY(b.y + 1), '#c9b8ff', 0.05, 0.2) });
     this.sound('zap'); void from;
@@ -1045,7 +1058,7 @@ export class Heroes {
   }
   // ---- SABLE ------------------------------------------------------------------------------------------
   sableLight() { this.combo3({ anims: ['slash', 'slash2', 'punchR'], dmg: [13, 13, 17], knock: [3, 3, 7], range: 2.5, deg: 60, kind: 'cut', color: '#ff8a96', arc: true, wall: 0.6 }); }
-  sableHeavy() { const p = G.player; this.faceAim(0.3); p.play('kick', 0.35); this.sound('swish'); this.later(0.12, () => { this.ball(this.centre(), 2.7, { dmg: 22, knock: 10, up: 3 }); G.fx.ring(this.centre(), '#ff8a96', 0.3, 3, 0.3); }); }
+  sableHeavy() { const p = G.player; this.faceAim(0.3); p.play('roundhouse', 0.38); this.sound('swish'); this.later(0.12, () => { this.ball(this.centre(), 2.7, { dmg: 22, knock: 10, up: 3 }); G.fx.ring(this.centre(), '#ff8a96', 0.3, 3, 0.3); }); }
   sableP1() {
     const p = G.player; this.faceAim(0.6); p.play('charge', 0.4); this.sound('zap');
     const orb = G.fx.orb('#cfe9ff', 0.16);
@@ -1055,7 +1068,7 @@ export class Heroes {
       const dir = V().subVectors(to, p.pos); const L = Math.min(Math.max(2, dir.length() - 1.2), 26); dir.normalize();
       this.startMove('dash', { dir, speed: 55, T: L / 55, done: new Set(), anim: 'castR', trail: (x, y) => G.fx.bolt(x.clone().setY(x.y + 1.2), y.clone().setY(y.y + 1.2), '#cfe9ff', 0.05, 0.2),
         onEnd: () => {
-          p.play('castR', 0.35); const h = this.chest().addScaledVector(dir, 1.0);
+          p.play('dashstab', 0.35); const h = this.chest().addScaledVector(dir, 1.0);
           const n = this.ball(h, 1.6, { dmg: 65, knock: 16, up: 5, kind: 'shock', color: '#cfe9ff', max: 1 });
           G.fx.blast(h, '#cfe9ff', 0.2, 1.8, 0.3); G.fx.spark(h, '#ffffff', 26, 9, 0.4, 0.14); G.fx.shake(0.3); this.sound('boom');
           if (!n) G.damage.wallHit(this.chest(), dir, 2.5, 4, 'shock', { byHero: true });
@@ -1226,7 +1239,7 @@ export class Heroes {
 
   // ---- BRANN ------------------------------------------------------------------------------------------
   brannLight() { this.combo3({ anims: ['slash', 'slash2', 'heavy'], dmg: [16, 16, 25], knock: [5, 5, 11], range: 2.9, deg: 65, kind: 'shock', color: '#8fd3ff', wall: 1.1 }); }
-  brannHeavy() { const p = G.player; this.faceAim(0.4); p.play('castR', 0.3); this.sound('zap'); this.throwBack({ range: 38, speed: 38, r: 0.3, color: '#cfe9ff', dmg: 26, knock: 9, kind: 'shock', power: 1.5, trail: '#8fd3ff' }); }
+  brannHeavy() { const p = G.player; this.faceAim(0.4); p.play('throw', 0.36); this.sound('zap'); this.throwBack({ range: 38, speed: 38, r: 0.3, color: '#cfe9ff', dmg: 26, knock: 9, kind: 'shock', power: 1.5, trail: '#8fd3ff' }); }
   brannP1() {
     const a = this.aim(90), at = a.point.clone(); G.player.play('raise', 0.4); this.faceAim(0.3);
     G.fx.ring(at, '#8fd3ff', 3, 0.4, 0.35);
@@ -1243,12 +1256,12 @@ export class Heroes {
       onEnd: () => { if (tool) tool.rotation.y = 0; } });
     p.play('raise', 2.4); this.sound('zap');
   }
-  brannP3() { const c = this.centre(); G.player.play('raise', 0.3); this.later(0.12, () => { this.ball(c, 7, { dmg: 22, knock: 15, up: 5, kind: 'shock', color: '#8fd3ff' }); G.fx.ring(c, '#8fd3ff', 0.5, 9, 0.5); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; G.fx.bolt(c, V().set(c.x + Math.cos(a) * 6, c.y, c.z + Math.sin(a) * 6), '#cfe9ff', 0.06, 0.25); } G.fx.shake(0.3); this.sound('boom'); }); }
+  brannP3() { const c = this.centre(); G.player.play('smash', 0.4); this.later(0.12, () => { this.ball(c, 7, { dmg: 22, knock: 15, up: 5, kind: 'shock', color: '#8fd3ff' }); G.fx.ring(c, '#8fd3ff', 0.5, 9, 0.5); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; G.fx.bolt(c, V().set(c.x + Math.cos(a) * 6, c.y, c.z + Math.sin(a) * 6), '#cfe9ff', 0.06, 0.25); } G.fx.shake(0.3); this.sound('boom'); }); }
   brannUlt() { this.ult = 10; this.stormT = 0; G.ui.flash('STORM', 1.4); if (G.env.strike) G.env.strike(this.centre()); }
 
   // ---- BULWARK ----------------------------------------------------------------------------------------
   bulwarkLight() { this.combo3({ anims: ['punchR', 'punchL', 'heavy'], dmg: [18, 18, 28], knock: [7, 7, 14], range: 3.0, deg: 60, wall: 1.5 }); }
-  bulwarkHeavy() { const p = G.player; p.play('slam', 0.45); this.later(0.16, () => { const c = this.centre(); c.y = p.pos.y + 0.3; this.ball(c, 5, { dmg: 30, knock: 12, up: 6 }); G.damage.impact(V().set(c.x, p.pos.y, c.z), V().set(0, 1, 0), 3, 'blunt', { byHero: true }); G.fx.ring(c, '#ffb347', 0.5, 6, 0.4); G.fx.dust(c, 22, 2); G.fx.shake(0.45); this.sound('boom'); }); }
+  bulwarkHeavy() { const p = G.player; p.play('groundpound', 0.48); this.later(0.16, () => { const c = this.centre(); c.y = p.pos.y + 0.3; this.ball(c, 5, { dmg: 30, knock: 12, up: 6 }); G.damage.impact(V().set(c.x, p.pos.y, c.z), V().set(0, 1, 0), 3, 'blunt', { byHero: true }); G.fx.ring(c, '#ffb347', 0.5, 6, 0.4); G.fx.dust(c, 22, 2); G.fx.shake(0.45); this.sound('boom'); }); }
   bulwarkP1() {
     // a huge jump to the crosshair, up to 80 m: the longer the jump, the higher and longer the arc
     const p = G.player, a = this.aim(80), to = a.point.clone(), g = 22 * (p.gravK || 1);
@@ -1257,19 +1270,19 @@ export class Heroes {
     p.vel.set(dx / T, (dy + 0.5 * g * T * T) / T, dz / T); p.grounded = false; p.fling = 'leap'; p.play('air', T); this.leap = { t: 0 };   // fling: the air does not slow the jump; 'leap': he lands in a crater, not a roll this.faceAim(0.4); this.sound('swish');
     const c = V().set(p.pos.x, p.pos.y + 0.1, p.pos.z); G.fx.dust(c, 20, 2); G.fx.ring(c, '#ffb347', 0.5, 5, 0.4); G.damage.impact(c.clone(), V().set(0, 1, 0), 2, 'blunt', { byHero: true, quiet: true }); G.fx.shake(0.3);   // the street cracks under the push-off
   }
-  bulwarkP2() { const p = G.player; this.faceAim(0.4); p.play('cast', 0.35); this.later(0.12, () => { const c = this.chest(), f = this.fwd(V(), 0.3); this.cone(12, 30, { dmg: 25, knock: 18, up: 3 }, c, f); G.fx.ring(c.clone().addScaledVector(f, 1), '#ffffff', 0.3, 4, 0.3, f); G.fx.spray(c, f, '#c8c2b4', 20, 18, 0.5, 0.6, 0.6, 1.8, 0, true); G.damage.wallHit(c, f, 12, 2, 'blunt', { byHero: true }); G.fx.shake(0.3); this.sound('boom'); }); }
+  bulwarkP2() { const p = G.player; this.faceAim(0.4); p.play('beam', 0.38); this.later(0.12, () => { const c = this.chest(), f = this.fwd(V(), 0.3); this.cone(12, 30, { dmg: 25, knock: 18, up: 3 }, c, f); G.fx.ring(c.clone().addScaledVector(f, 1), '#ffffff', 0.3, 4, 0.3, f); G.fx.spray(c, f, '#c8c2b4', 20, 18, 0.5, 0.6, 0.6, 1.8, 0, true); G.damage.wallHit(c, f, 12, 2, 'blunt', { byHero: true }); G.fx.shake(0.3); this.sound('boom'); }); }
   bulwarkP3() {
     const p = G.player, tg = this.nearest(1, 4.5, p.pos, false)[0];
     if (!tg) { G.ui.toast('Nothing close enough to grab.', 'info'); return false; }
     tg.stun = Math.max(tg.stun || 0, 1.5); p.play('raise', 0.45); this.faceAim(0.5);
-    this.later(0.4, () => { const a = this.aim(30), f = this.dirFrom(this.chest(), a); p.play('heavy', 0.3); tg.hit(25 * this.dmgMul, f.clone().setY(0).normalize(), { knock: 26, up: 6, byHero: true }); const land = this.chest().addScaledVector(f, 11); this.later(0.45, () => { land.y = G.colliders.groundAt(land.x, land.z, land.y + 3, 6, 0.3) + 0.5; this.ball(land, 3, { dmg: 30, knock: 10, up: 3 }); G.fx.dust(land, 14, 1.5); G.fx.ring(land, '#ffb347', 0.4, 4, 0.35); }); this.sound('swish'); });
+    this.later(0.4, () => { const a = this.aim(30), f = this.dirFrom(this.chest(), a); p.play('throw', 0.36); tg.hit(25 * this.dmgMul, f.clone().setY(0).normalize(), { knock: 26, up: 6, byHero: true }); const land = this.chest().addScaledVector(f, 11); this.later(0.45, () => { land.y = G.colliders.groundAt(land.x, land.z, land.y + 3, 6, 0.3) + 0.5; this.ball(land, 3, { dmg: 30, knock: 10, up: 3 }); G.fx.dust(land, 14, 1.5); G.fx.ring(land, '#ffb347', 0.4, 4, 0.35); }); this.sound('swish'); });
   }
-  bulwarkUlt() { this.ult = 15; this.rage = 100; this.applyStats(); G.ui.flash('RAMPAGE', 1.4); G.fx.ring(this.centre(), '#ffb347', 0.5, 8, 0.5); G.fx.shake(0.5); if (G.audio) G.audio.tone(80, 1.2, 0.14, 'sawtooth', null, 0.05, 0.6); }
+  bulwarkUlt() { G.player.play('roar', 0.9); this.ult = 15; this.rage = 100; this.applyStats(); G.ui.flash('RAMPAGE', 1.4); G.fx.ring(this.centre(), '#ffb347', 0.5, 8, 0.5); G.fx.shake(0.5); if (G.audio) G.audio.tone(80, 1.2, 0.14, 'sawtooth', null, 0.05, 0.6); }
 
   // ---- WARDEN -----------------------------------------------------------------------------------------
   wardenLight() { this.combo3({ anims: ['punchL', 'punchR', 'heavy'], dmg: [13, 13, 20], knock: [5, 5, 10], range: 2.6, deg: 60, wall: 0.9 }); }
   wardenHeavy() {
-    const p = G.player; this.faceAim(0.4); p.play('castR', 0.3); this.sound('swish');
+    const p = G.player; this.faceAim(0.4); p.play('throw', 0.34); this.sound('swish');
     const first = this.aim(30).target, list = [];
     let from = first && first.alive ? first : this.nearest(1, 25)[0]; while (from && list.length < 4) { list.push(from); from = [...G.combat.targets].filter((x) => x.alive && !list.includes(x) && x.pos.distanceTo(list[list.length - 1].pos) < 15).sort((a, b) => a.pos.distanceTo(list[list.length - 1].pos) - b.pos.distanceTo(list[list.length - 1].pos))[0]; }
     if (!list.length) return this.throwBack({ range: 30, speed: 34, r: 0.32, color: '#d8a65a', dmg: 22, knock: 8, kind: 'blunt', power: 1.2 });
@@ -1281,12 +1294,12 @@ export class Heroes {
   wardenUlt() {
     const list = this.nearest(8, 30); if (!list.length) { G.ui.toast('No villains within 30 m.', 'info'); return false; }
     const seq = []; for (let i = 0; i < 16; i++) seq.push(list[i % list.length]);
-    G.ui.flash('RICOCHET', 1.2); G.player.play('castR', 0.4); this.chain(seq, 25, '#ffd08a', 0.18);
+    G.ui.flash('RICOCHET', 1.2); G.player.play('throw', 0.42); this.chain(seq, 25, '#ffd08a', 0.18);
   }
 
   // ---- KITSU ------------------------------------------------------------------------------------------
   kitsuLight() { this.combo3({ anims: ['punchR', 'punchL', 'kick'], dmg: [10, 10, 15], knock: [3, 3, 7], range: 2.4, deg: 60, wall: 0.6 }); }
-  kitsuHeavy() { const p = G.player; this.faceAim(0.3); p.play('spin', 0.4); this.later(0.1, () => { this.ball(this.centre(), 2.8, { dmg: 20, knock: 10, up: 3 }); G.fx.ring(this.centre(), '#59c8ff', 0.3, 3.2, 0.3); }); this.sound('swish'); }
+  kitsuHeavy() { const p = G.player; this.faceAim(0.3); p.play('spinkick', 0.42); this.later(0.1, () => { this.ball(this.centre(), 2.8, { dmg: 20, knock: 10, up: 3 }); G.fx.ring(this.centre(), '#59c8ff', 0.3, 3.2, 0.3); }); this.sound('swish'); }
   kitsuP1() {
     const p = G.player; this.faceAim(0.7); p.play('charge', 0.45); this.sound('power');
     const orb = G.fx.orb('#9fe6ff', 0.2);
@@ -1337,7 +1350,7 @@ export class Heroes {
   emberHeavy() { const p = G.player, a = this.aim(70), h = this.hand(); this.faceAim(0.4); p.play('heavy', 0.3); this.shoot({ from: h, dir: this.dirFrom(h, a), speed: 44, r: 0.55, color: '#ff8a3c', dmg: 32, knock: 10, kind: 'fire', blast: 3, power: 2, life: 1.8, trail: '#ff7a1a' }); this.sound('fire'); }
   emberP1() { const p = G.player, a = this.aim(30), dir = V().subVectors(a.point, p.pos).setY(0).normalize(); this.patches = this.patches || [];
     this.startMove('dash', { dir, speed: 42, T: 0.34, done: new Set(), anim: 'dash', hit: { dmg: 20, knock: 7, kind: 'fire', color: '#ff7a1a' }, r: 1.4, trail: (x, y) => { this.patches.push({ p: y.clone(), t: 4, k: 0.3, r: 1.5 }); G.fx.fire(y, 4, 1); } }); this.sound('fire'); }
-  emberP2() { const p = G.player; p.play('raise', 0.5); this.patches = this.patches || []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283, q = V().set(p.pos.x + Math.cos(a) * 4, p.pos.y, p.pos.z + Math.sin(a) * 4); q.y = G.colliders.groundAt(q.x, q.z, q.y + 2, 3, 0.3); this.patches.push({ p: q, t: 4, k: 0.1, r: 1.7, pillar: true }); } G.fx.ring(this.centre(), '#ff7a1a', 0.5, 5, 0.4); this.sound('fire'); }
+  emberP2() { const p = G.player; p.play('smash', 0.5); this.patches = this.patches || []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283, q = V().set(p.pos.x + Math.cos(a) * 4, p.pos.y, p.pos.z + Math.sin(a) * 4); q.y = G.colliders.groundAt(q.x, q.z, q.y + 2, 3, 0.3); this.patches.push({ p: q, t: 4, k: 0.1, r: 1.7, pillar: true }); } G.fx.ring(this.centre(), '#ff7a1a', 0.5, 5, 0.4); this.sound('fire'); }
   emberP3() { this.flame = 6; G.ui.flash('FLAME BODY', 0.9); G.fx.blast(this.centre(), '#ff7a1a', 0.5, 2.5, 0.3); this.sound('fire'); }
   emberUlt() {
     const a = this.aim(90), at = a.point.clone(), p = G.player; p.play('raise', 1.2); G.ui.flash('METEOR', 1.2);
@@ -1346,6 +1359,123 @@ export class Heroes {
     this.later(1.25, () => { orb.life = 0; this.ball(at, 12, { dmg: 100, knock: 20, up: 8, kind: 'fire', color: '#ff7a1a', from: at }); G.damage.burst(at, 12, 6, 'fire', { byHero: true }); G.fx.blast(at, '#ff8a3c', 1, 12, 0.7); G.fx.ring(at, '#ffc23d', 1, 16, 0.8); G.fx.dust(at, 40, 4); G.fx.shake(1); this.sound('boom'); this.patches = this.patches || []; for (let k = 0; k < 6; k++) { const q = at.clone().add(this.v.set((Math.random() - 0.5) * 12, 0, (Math.random() - 0.5) * 12)); this.patches.push({ p: q, t: 5, k: 0.2, r: 2 }); } });
   }
 
+  // ---- shared: trails, the camera kick, the launcher and air combos ----------------------------------
+  // a glowing trail behind a fist (R, L), the right foot (F) or the blade (B) for a moment
+  trail(part, hex, secs = 0.22, w = 0.07) {
+    const r = G.player.rig; if (!r || !G.fx.trail) return;
+    G.fx.trail((out) => { r.root.updateMatrixWorld(true); return part === 'L' ? r.elbL.localToWorld(out.set(0, -0.38, 0.03)) : part === 'F' ? r.kneeR.localToWorld(out.set(0, -0.5, 0.08)) : part === 'B' ? r.elbR.localToWorld(out.set(0, -0.95, 0.12)) : r.elbR.localToWorld(out.set(0, -0.38, 0.03)); }, hex, secs, w);
+  }
+  kick(k) { this.punchKick = Math.min(9, (this.punchKick || 0) + k); }   // the view widens for a moment on a big hit
+  launcher() {
+    const p = G.player, c = this.H.color, t = this.nearest(1, 6.5).find((q) => !q.flying);
+    if (t) { const dx = t.pos.x - p.pos.x, dz = t.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1; if (d > 1.7) { p.pos.x += dx / d * (d - 1.6); p.pos.z += dz / d * (d - 1.6); } p.yaw = Math.atan2(dx, dz); p.aimT = 0.4; }   // step in to the nearest enemy first
+    else this.faceAim(0.4);
+    p.play('uppercut', 0.42); this.trail('R', c, 0.32, 0.1); this.sound('swish'); this.launchReady = 0; this.cool('heavy', 0.7);
+    this.later(0.13, () => {
+      const n = this.cone(4.6, 80, { dmg: 22, knock: 2, up: 13, stun: 1.4, kind: 'blunt', color: c });   // reaches an enemy the third hit knocked back G.fx.ring(this.centre(), c, 0.3, 3, 0.3);
+      if (n) { this.kick(4); G.ui.flash('LAUNCH', 0.5); p.vel.y = 10.5; p.grounded = false; this.airCombo = G.elapsed + 1.8; this.airHits = 0; }
+    });
+  }
+  airHit() {
+    const p = G.player, c = this.H.color, k = this.airHits++; this.faceAim(0.3); this.cool('light', 0.2);
+    if (k < 2) { p.play(k ? 'kick' : 'punchR', 0.22); this.trail(k ? 'F' : 'R', c); p.vel.y = Math.max(p.vel.y, 2.4); this.later(0.07, () => this.cone(3.4, 80, { dmg: 14, knock: 2, up: 3.2, stun: 0.8, kind: 'blunt', color: c })); this.airCombo = G.elapsed + 1.2; }
+    else { p.play('dropkick', 0.36); this.trail('F', c, 0.36, 0.11); this.later(0.08, () => { const n = this.cone(3.7, 90, { dmg: 30, knock: 12, kind: 'blunt', color: c }); if (n) { this.kick(5); G.fx.shake(0.2); G.ui.flash('SPIKE', 0.5); } p.vel.y = -14; }); this.airCombo = 0; }
+    this.sound('swish');
+  }
+  // ---- key 5: one more skill for every hero ------------------------------------------------------------
+  strandP5() {   // web mine: a sticky ball on the ground that bursts when a villain comes near
+    const p = G.player, at = this.aim(30).point.clone(); this.faceAim(0.3); p.play('castR', 0.3); this.sound('thwip');
+    const orb = G.fx.orb('#e8fbff', 0.32); orb.p.copy(this.hand()); const from = orb.p.clone();
+    for (let i = 1; i <= 8; i++) this.later(i * 0.03, () => orb.p.copy(from).lerp(at, i / 8));
+    this.later(0.26, () => { this.mines = this.mines || []; this.mines.push({ p: at, t: 14, arm: 0.7, orb, color: '#e8fbff', r: 4.2, o: { dmg: 18, stun: 3, knock: 2, kind: 'web', color: '#e8fbff' } }); G.fx.ring(at, '#e8fbff', 0.2, 1.2, 0.3); });
+  }
+  forgeP5() {   // drone turret: hovers where you put it for 10 s and fires at the nearest villain
+    const p = G.player, at = V().set(p.pos.x + Math.sin(p.yaw) * 1.6, p.pos.y + 2.6, p.pos.z + Math.cos(p.yaw) * 1.6); p.play('castR', 0.3); this.sound('power');
+    const orb = G.fx.orb('#59e0ff', 0.34); orb.p.copy(at); this.turrets = this.turrets || []; this.turrets.push({ p: at, base: at.y, t: 10, cool: 0.5, orb }); G.fx.ring(at, '#59e0ff', 0.2, 1.4, 0.3);
+  }
+  raikoP5() {   // lightning cage: six posts of lightning round the spot you aim at; anyone inside is shocked and held
+    const at = this.aim(40).point.clone(); this.faceAim(0.3); G.player.play('castR', 0.35); this.sound('zap');
+    this.cages = this.cages || []; this.cages.push({ p: at, t: 4, tick: 0, r: 5.5 }); G.fx.ring(at, '#a78bff', 5.5, 5.5, 4, null, true); G.fx.bolt(V().set(at.x, at.y + 30, at.z), at, '#ffffff', 0.12, 0.25, 2);
+  }
+  sableP5() { this.mirror = 3; this.mirrorDmg = 0; G.player.play('guard', 0.6); G.ui.flash('MIRROR', 0.7); G.fx.ring(this.centre(), '#ff5a6e', 0.3, 2.5, 0.4); this.sound('shield'); }   // mirror guard: soak 3 s of hits, then throw them all back
+  rookP5() { this.mirror = 3; this.mirrorDmg = 0; G.player.play('flex', 0.6); G.ui.flash('BOUNCE', 0.7); G.fx.ring(this.centre(), '#ffd34d', 0.3, 2.5, 0.4); this.sound('boing'); }   // rubber guard: every hit for 3 s bounces back, harder
+  brannP5() {   // hammer chain: the hammer flies to the spot you aim at and drags every villain near it in
+    const p = G.player, at = this.aim(40).point.clone(); this.faceAim(0.3); p.play('throw', 0.4); this.sound('zap');
+    const orb = G.fx.orb('#8fd3ff', 0.4); orb.p.copy(this.hand()); const from = orb.p.clone();
+    for (let i = 1; i <= 10; i++) this.later(0.1 + i * 0.025, () => orb.p.copy(from).lerp(at, i / 10));
+    this.later(0.38, () => {
+      orb.life = 0; G.fx.ring(at, '#8fd3ff', 0.4, 7, 0.45); G.fx.bolt(V().set(at.x, at.y + 25, at.z), at, '#ffffff', 0.1, 0.2);
+      for (const t of G.combat.targets) { if (!t.alive || t.team !== 'villain' || !t.pos) continue; const d = Math.hypot(t.pos.x - at.x, t.pos.z - at.z); if (d > 7.5) continue; const dir = V().set(at.x - t.pos.x, 0, at.z - t.pos.z).normalize(); if (!t.big && t.vel) { t.vel.x += dir.x * Math.min(16, d * 3); t.vel.z += dir.z * Math.min(16, d * 3); } G.combat.hitTarget(t, dir, { dmg: 16, stun: 1.5, knock: 0, kind: 'shock', color: '#8fd3ff', byHero: true }); G.fx.bolt(at.clone().setY(at.y + 1), G.combat.centre(t, V()), '#8fd3ff', 0.06, 0.2); }
+    });
+  }
+  bulwarkP5() {   // car toss: tear up the nearest vehicle and throw it where you aim (or a slab of street, with none near)
+    const p = G.player, c = this.centre(), W = G.wrecks; let car = null, bd = 9;
+    if (W) for (const s of W.live()) { if (s.dead || s.burning) continue; const d = Math.hypot(s.x - p.pos.x, s.z - p.pos.z); if (d < bd) { bd = d; car = s; } }
+    this.faceAim(0.8); p.play('raise', 0.45); this.sound('slam');
+    this.later(0.42, () => {
+      const a = this.aim(70), dir = V().subVectors(a.point, c).normalize(); p.play('throw', 0.4); G.fx.shake(0.15);
+      if (car && W.throwVehicle(car, V().set(p.pos.x, p.pos.y + 3.2, p.pos.z), V().set(dir.x * 26, Math.max(4, dir.y * 26 + 5), dir.z * 26), { byHero: true })) { G.ui.flash('CAR TOSS', 0.7); return; }
+      const from = V().set(p.pos.x, p.pos.y + 2.8, p.pos.z); G.damage.impact(V().set(p.pos.x, p.pos.y, p.pos.z), V().set(0, 1, 0), 2.5, 'blunt', { byHero: true });
+      this.shoot({ from, dir: V().set(dir.x, dir.y + 0.15, dir.z).normalize(), speed: 30, r: 0.7, color: '#9a958b', dmg: 34, knock: 12, up: 4, blast: 3.5, power: 2.5, kind: 'blunt', grav: 9, life: 3 });
+    });
+  }
+  wardenP5() {   // shield wall: a wall of light in front of you for 8 s that stops shots
+    const p = G.player, f = V().set(Math.sin(p.yaw), 0, Math.cos(p.yaw)), c = V().set(p.pos.x + f.x * 3, p.pos.y, p.pos.z + f.z * 3); p.play('guard', 0.5); this.sound('shield');
+    const m = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color('#59e0ff').multiplyScalar(1.1), transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.position.set(c.x, c.y + 1.5, c.z); m.rotation.y = p.yaw; G.scene.add(m); (this.walls = this.walls || []).push({ m, t: 8 }); G.fx.ring(c, '#59e0ff', 0.4, 3.5, 0.4);
+    const side = V().set(f.z, 0, -f.x); for (const k of [-2, 0, 2]) for (const h of [0.8, 2.2]) G.villains.eraseNear(V().set(c.x + side.x * k, c.y + h, c.z + side.z * k), 1.5, 8);
+  }
+  kitsuP5() {   // shadow swap: trade places with a clone (the one nearest where you aim), or vanish and come out behind the nearest villain
+    const p = G.player, a = this.aim(40), cl = (this.clones || []).filter((q) => q.t > 0).sort((x, y) => x.pos.distanceTo(a.point) - y.pos.distanceTo(a.point))[0];
+    G.fx.smoke(V().set(p.pos.x, p.pos.y + 1, p.pos.z), 6, '#e8eef4', 1.5, 1.4); this.sound('swish');
+    if (cl) { const here = p.pos.clone(); p.pos.copy(cl.pos); cl.pos.copy(here); G.fx.smoke(V().set(p.pos.x, p.pos.y + 1, p.pos.z), 5, '#e8eef4', 1.4, 1.3); return; }
+    const t = this.nearest(1, 18)[0]; if (!t) { const d = V().subVectors(a.point, p.pos).setY(0); if (d.length() > 10) d.setLength(10); p.pos.add(d); return; }
+    const dir = V().set(t.pos.x - p.pos.x, 0, t.pos.z - p.pos.z).normalize(); p.pos.set(t.pos.x + dir.x * 1.6, Math.max(p.pos.y, t.pos.y), t.pos.z + dir.z * 1.6); p.yaw = p.camYaw = Math.atan2(-dir.x, -dir.z);
+    p.play('dashstab', 0.3); this.later(0.06, () => { G.combat.hitTarget(t, V().copy(dir).negate(), { dmg: 28, stun: 1, knock: 6, kind: 'cut', color: '#59c8ff', byHero: true }); this.trail('R', '#59c8ff', 0.2, 0.08); });
+  }
+  trineP5() {   // whirlwind: 2 s spinning in place, dragging everyone within 9 m into the blades
+    G.player.play('spin', 2); this.sound('swish');
+    this.startChannel(2, 0.2, () => {
+      const c = this.centre(); for (const t of G.combat.targets) { if (!t.alive || t.team !== 'villain' || t.big || !t.vel) continue; const dx = c.x - t.pos.x, dz = c.z - t.pos.z, d = Math.hypot(dx, dz); if (d < 9 && d > 1.5) { t.vel.x += dx / d * 5; t.vel.z += dz / d * 5; } }
+      this.ball(c, 3.4, { dmg: 7, knock: 0, kind: 'cut', color: '#ff9ab0', civ: false }); this.arc('#ff9ab0', 1, 3.2); this.arc('#ffffff', -1, 2.4);
+    }, { slow: 0.5 });
+  }
+  emberP5() {   // wall of fire: a line of flames across your aim, 12 m long, for 6 s
+    const p = G.player, a = this.aim(30), f = V().set(Math.sin(p.yaw), 0, Math.cos(p.yaw)), c = V().set(p.pos.x + f.x * 7, p.pos.y, p.pos.z + f.z * 7), side = V().set(f.z, 0, -f.x); void a;
+    this.faceAim(0.3); p.play('cast', 0.4); this.sound('fire'); this.patches = this.patches || [];
+    for (let k = -5; k <= 5; k++) { const q = V().set(c.x + side.x * k * 1.2, c.y, c.z + side.z * k * 1.2); q.y = G.colliders.groundAt(q.x, q.z, q.y + 2, 3, 0.3); this.later(Math.abs(k) * 0.04, () => { this.patches.push({ p: q, t: 6, k: 0.3, r: 1.4 }); G.fx.fire(q, 6, 1.2); }); }
+  }
+  // the key-5 things that last: mines, turrets, cages, walls, the mirror
+  extras(dt, t) {
+    if (this.mines) for (let i = this.mines.length - 1; i >= 0; i--) {
+      const m = this.mines[i]; m.t -= dt; m.arm -= dt; m.orb.r0 = m.orb.r1 = 0.3 + Math.sin(t * 8) * 0.05;
+      const near = m.arm <= 0 && [...G.combat.targets].some((q) => q.alive && q.team === 'villain' && q.pos && q.pos.distanceTo(m.p) < 2.6);
+      if (near || m.t <= 0) { m.orb.life = 0; this.mines.splice(i, 1); this.ball(m.p, m.r, { ...m.o, civ: false }); G.fx.ring(m.p, m.color, 0.3, m.r + 1, 0.4); G.fx.spark(m.p, m.color, 20, 6, 0.5, 0.15); this.sound('splat'); }
+    }
+    if (this.turrets) for (let i = this.turrets.length - 1; i >= 0; i--) {
+      const u = this.turrets[i]; u.t -= dt; u.cool -= dt; u.p.y = u.base + Math.sin(t * 3 + i) * 0.15; u.orb.p.copy(u.p);
+      if (u.cool <= 0) { u.cool = 0.45; const tg = this.nearest(1, 26, u.p)[0]; if (tg) { const c = G.combat.centre(tg, V()); this.shoot({ from: u.p.clone(), dir: V().subVectors(c, u.p).normalize(), speed: 60, r: 0.12, color: '#ffb347', dmg: 8, knock: 1.5, kind: 'energy', life: 1 }); G.fx.ring(u.p, '#59e0ff', 0.1, 0.6, 0.15); } }
+      if (u.t <= 0) { u.orb.life = 0; G.fx.spark(u.p, '#59e0ff', 10, 4, 0.4, 0.1); this.turrets.splice(i, 1); }
+    }
+    if (this.cages) for (let i = this.cages.length - 1; i >= 0; i--) {
+      const g = this.cages[i]; g.t -= dt; g.tick -= dt;
+      if (g.tick <= 0) { g.tick = 0.35; const posts = [0, 1, 2, 3, 4, 5].map((k) => V().set(g.p.x + Math.cos(k * 1.047 + t) * g.r, g.p.y + 1.5, g.p.z + Math.sin(k * 1.047 + t) * g.r)); for (let k = 0; k < 6; k++) G.fx.bolt(posts[k], posts[(k + 1) % 6], '#c9b8ff', 0.05, 0.3, 0.8); this.ball(g.p, g.r, { dmg: 5, stun: 0.6, knock: 0, kind: 'shock', color: '#a78bff', civ: false }); }
+      if (g.t <= 0) this.cages.splice(i, 1);
+    }
+    if (this.walls) for (let i = this.walls.length - 1; i >= 0; i--) { const w = this.walls[i]; w.t -= dt; w.m.material.opacity = 0.22 + Math.sin(t * 6) * 0.06 + (w.t < 1 ? (w.t - 1) * 0.2 : 0); if (w.t <= 0) { w.m.removeFromParent(); w.m.geometry.dispose(); this.walls.splice(i, 1); } }
+    if (this.mirror > 0) {
+      this.mirror -= dt; if (Math.random() < dt * 12) G.fx.ring(this.centre(), this.id === 'rook' ? '#ffd34d' : '#ff5a6e', 1.2, 1.4, 0.15);
+      if (this.mirror <= 0 && this.id === 'sable') {   // everything soaked up goes back: a bolt to each one who hit her, and a burst round her
+        const got = this.mirrorDmg || 0, src = [...(this.mirrorSrc || [])].filter((q) => q.alive); this.mirrorSrc = null;
+        if (got > 0) { const c = this.centre(); this.ball(c, 6, { dmg: 20 + got, knock: 12, up: 4, kind: 'shock', color: '#ff5a6e' }); G.fx.blast(c, '#ff5a6e', 0.5, 6, 0.4); G.ui.flash('RETURNED', 0.7); this.kick(4);
+          for (const q of src) { const qc = G.combat.centre(q, V()); G.fx.bolt(c.clone(), qc, '#ff5a6e', 0.09, 0.3); G.combat.hitTarget(q, V().subVectors(qc, c).setY(0).normalize(), { dmg: 15 + got * 1.5 / src.length, knock: 10, up: 3, stun: 1, kind: 'shock', color: '#ff5a6e', byHero: true }); } }
+      }
+    }
+  }
+  clearExtras() {
+    for (const m of this.mines || []) m.orb.life = 0; for (const u of this.turrets || []) u.orb.life = 0; for (const w of this.walls || []) w.m.removeFromParent();
+    this.mines = []; this.turrets = []; this.cages = []; this.walls = []; this.mirror = 0;
+  }
   signature() {
     if (this.level() < 4) { if (!(this.cd.sigMsg > 0)) { G.ui.toast(`${this.H.name}'s signature move unlocks at level 4 (now level ${this.level()}).`, 'info'); this.cd.sigMsg = 3; } return; }
     if (!this.ready('sig')) return;
@@ -1409,6 +1539,7 @@ export class Heroes {
     const p = G.player;
     if (o.copy) this.saw(o.copy, p.pos);
     if (this.dodge > 0) { G.fx.spark(this.centre(), '#3fe0c5', 10, 4, 0.3, 0.12); if (p.state === 'walk' && p.grounded) { p.vel.x += -dir.z * 6; p.vel.z += dir.x * 6; p.vel.y = 4; p.grounded = false; p.play('spin', 0.3); } return; }
+    if (this.mirror > 0) { this.mirrorDmg = (this.mirrorDmg || 0) + dmg; if (o.src && o.src.alive) (this.mirrorSrc = this.mirrorSrc || new Set()).add(o.src); G.fx.ring(this.centre(), this.id === 'rook' ? '#ffd34d' : '#ff5a6e', 0.4, 2.4, 0.25); if (this.id === 'rook' && o.src && o.src.hit) o.src.hit(dmg * 1.5 + 8, V().copy(dir).negate(), { knock: 12, up: 3, byHero: true }); return; }   // key 5: soaked up (and, for Rook, bounced straight back)
     if (this.balloon > 0) { G.fx.ring(this.centre(), '#ffd34d', 0.4, 2.5, 0.3); if (o.src && o.src.hit) o.src.hit(dmg * 0.5, V().copy(dir).negate(), { knock: 10, byHero: true }); return; }
     if (this.counter > 0) { this.counter = 0; G.player.play('slash', 0.3); this.faceAim(0.3); this.cone(4.5, 120, { dmg: 60, knock: 14, up: 4, kind: 'cut', color: '#ff6f8a' }); this.arc('#ff6f8a', 1, 4); this.arc('#ffffff', -1, 4); G.ui.flash('COUNTER', 0.8); this.sound('zap'); return; }
     if (this.block > 0 && o.src && o.src.hit) o.src.hit(dmg * 0.6, V().copy(dir).negate(), { knock: 6, byHero: true });
@@ -1483,7 +1614,7 @@ export class Heroes {
     q('.hh-hp i').style.width = `${(this.hp / this.max) * 100}%`; q('.hh-hp span').textContent = `${Math.ceil(this.hp)} / ${this.max}`;
     q('.hh-meter i').style.width = `${this.meter}%`; q('.hh-meter i').style.background = this.meter >= 100 ? c : ''; q('.hh-meter span').textContent = this.ult > 0 ? `${Math.ceil(this.ult)} s` : this.meter >= 100 ? 'R: ULTIMATE READY' : `ultimate ${Math.floor(this.meter)}%`;
     const names = Object.fromEntries(H.moves.map(([k, d]) => [k.split(' ')[0], k.slice(2)]));
-    q('.hh-moves').innerHTML = ['p1', 'p2', 'p3'].map((s, i) => { const left = Math.max(0, this.cd[s] || 0), full = (CD[this.id][s] || 1); return `<div class="hm${left > 0 ? ' cd' : ''}"><kbd>${i + 1}</kbd><span>${names[String(i + 1)] || ''}</span><i style="width:${(left / full) * 100}%"></i></div>`; }).join('') + (this.level() >= 4 ? `<div class="hm${this.cd.sig > 0 ? ' cd' : ''}"><kbd>4</kbd><span>${SIG[this.id][0]}</span><i style="width:${(Math.max(0, this.cd.sig || 0) / 14) * 100}%"></i></div>` : '');
+    q('.hh-moves').innerHTML = ['p1', 'p2', 'p3', 'p5'].map((s, i) => { const left = Math.max(0, this.cd[s] || 0), full = (CD[this.id][s] || 1), key = s.slice(1); void i; return `<div class="hm${left > 0 ? ' cd' : ''}"><kbd>${key}</kbd><span>${names[key] || ''}</span><i style="width:${(left / full) * 100}%"></i></div>`; }).join('') + (this.level() >= 4 ? `<div class="hm${this.cd.sig > 0 ? ' cd' : ''}"><kbd>4</kbd><span>${SIG[this.id][0]}</span><i style="width:${(Math.max(0, this.cd.sig || 0) / 14) * 100}%"></i></div>` : '');
     // the enemy you hit last
     const f = G.combat.lastHit;
     if (f && f.alive && !f.boss) { this.foeEl.style.display = 'block'; this.foeEl.querySelector('b').textContent = f.name; this.foeEl.querySelector('i').style.width = `${Math.max(0, f.hp / f.max) * 100}%`; } else this.foeEl.style.display = 'none';

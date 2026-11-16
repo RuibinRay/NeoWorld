@@ -42,7 +42,7 @@ export class Player {
     for (const f of this.flames) { f.visible = this.thrust; f.scale.y = 0.7 + Math.random() * 0.7; }
   }
   get eyeY() { return (this.crouch ? 1.05 : this.state === 'sit' ? 1.18 : 1.6) * this.rig.scale; }
-  play(anim, secs) { this.emote = { anim, t: secs }; }
+  play(anim, secs) { this.emote = { anim, t: secs, T: secs }; }   // T: the whole time, so the rig knows how far through the move it is
 
   sit(seat) {
     this.state = 'sit'; this.board = false; this.seat = seat; seat.taken = 'player'; this.vel.set(0, 0, 0); this.crouch = false;
@@ -105,6 +105,7 @@ export class Player {
       this.rig.root.visible = !this.firstPerson && this.state !== 'ride';
       this.rig.canopy.visible = G.env.rain > 0.3 && G.env.indoor < 0.5 && this.state === 'walk' && !(G.heroes && G.heroes.on);   // heroes do not fight under an umbrella
       if (this.jet || this.jetMesh) this.showJet();
+      this.rig.phase = this.emote && this.anim === this.emote.anim && this.emote.T > 0 ? 1 - this.emote.t / this.emote.T : -1;
       animateRig(this.rig, dt, this.anim, this.turnStep > 0 && this.speed < 0.3 ? 0.9 : this.speed);
       this.updateCamera(dt);
       G.city.pokeDoors(this.pos.x, this.pos.y, this.pos.z);

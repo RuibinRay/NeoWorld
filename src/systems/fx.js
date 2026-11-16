@@ -79,7 +79,7 @@ export class Fx {
     this.glow = new Cloud(3000, true); this.soft = new Cloud(900, false);
     const add = () => new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     const bg = new THREE.BoxGeometry(1, 1, 1); bg.translate(0, 0, 0.5);                    // a unit box from z 0 to 1: scaled to a beam's length
-    this.beams = new Pool(bg, 220, add());
+    this.beams = new Pool(bg, 420, add()); this.trails = [];
     const rg = new THREE.RingGeometry(0.86, 1, 48); rg.rotateX(-Math.PI / 2); this.rings = new Pool(rg, 48, Object.assign(add(), { side: THREE.DoubleSide }));
     this.orbs = new Pool(new THREE.SphereGeometry(1, 14, 10), 120, add());
     for (const o of [this.glow.mesh, this.soft.mesh, this.beams.mesh, this.rings.mesh, this.orbs.mesh]) G.scene.add(o);
@@ -120,12 +120,20 @@ export class Fx {
   // a glow that stays until released: projectiles, charging hands, cores (set .p, .r; .life = 0 removes it)
   orb(hex = '#ffffff', r = 0.25) { return this.orbs.add({ p: new THREE.Vector3(), c: new THREE.Color(hex), r0: r, r1: r, life: 1e9, max: 1e9, hold: true }); }
   shake(k) { this.shakeK = Math.min(1.2, this.shakeK + k); }
+  // a glowing ribbon behind something that moves (a fist, a foot, a blade tip) for secs: src(out) returns
+  // where it is now; each frame adds a short fading segment from where it was
+  trail(src, hex = '#ffffff', secs = 0.22, width = 0.07, segLife = 0.16) { this.trails.push({ src, hex, t: secs, w: width, life: segLife, prev: null }); }
 
   update(dt) {
     const cam = G.camera, h = G.renderer.domElement.height, s = h / (2 * Math.tan((cam.fov * Math.PI) / 360));
     this.glow.mat.uniforms.scale.value = s; this.soft.mat.uniforms.scale.value = s;
     this.glow.update(dt); this.soft.update(dt);
     this.shakeK = Math.max(0, this.shakeK - dt * 2.5);
+    for (let i = this.trails.length - 1; i >= 0; i--) {
+      const tr = this.trails[i], p = tr.src(new THREE.Vector3()); tr.t -= dt;
+      if (p && tr.prev && p.distanceToSquared(tr.prev) > 1e-4) { this.beam(tr.prev, p, tr.hex, tr.w, tr.life); this.beam(tr.prev, p, '#ffffff', tr.w * 0.35, tr.life * 0.7); if (Math.random() < 0.6) this.glow.emit(p.x, p.y, p.z, 0, 0, 0, tr.hex, 0.25, tr.w * 2.2, 0.02, 0, 0); }
+      tr.prev = p; if (tr.t <= 0 || !p) this.trails.splice(i, 1);
+    }
     const { m, q, sc } = this;
     // beams
     const B = this.beams; let n = 0;

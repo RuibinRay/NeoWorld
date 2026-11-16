@@ -649,6 +649,25 @@ time as you finish the Hero Hall missions (The Three Storms): Sable and Rook aft
 and Bulwark after 2, Warden and Kitsu after 3, Trine and Ember after 4. A hero you have already
 played stays unlocked. Locked heroes show greyed out with a lock in the Hero Hall.
 
+**Heavier, livelier fighting (every hero).** Attacks now wind up before they land: a fist draws back,
+a kicking leg chambers, arms rise before a slam, then the blow snaps through and settles slowly
+(the pose system reads how far through a move it is). Thirteen new poses: uppercut, roundhouse,
+drop kick, ground pound, beam stance, throw, roar, two-hand smash, lunging stab, spin kick, backflip and
+a transform pose; Bulwark's slam is now a ground pound, Raiko's thrust a lunge, Sable's and Kitsu's
+spinning kicks real kicks, the hammer and shield throws real throws, Forge's chest beam a beam stance,
+Rampage starts with a roar. Light and heavy attacks leave a glowing trail behind the fist, foot or
+blade, and big hits kick the view wider for a moment. Villains stagger from solid hits and are thrown
+flat by huge ones (then get up). **Launcher**: three quick light hits, then heavy: an uppercut that
+steps in to the nearest enemy, throws them up and takes you after them; light in the air then hits
+twice and the third spikes them down. **Key 5, a new skill for everyone**: Strand web mine, Forge
+drone turret (10 s), Raiko lightning cage, Sable mirror guard (soaks 3 s of hits, then sends them back
+to whoever threw them), Rook rubber guard (hits bounce straight back), Brann hammer chain (drags
+villains to the hammer), Bulwark car toss (tears up the nearest vehicle and throws it; it blows up
+where it lands), Warden shield wall (stops shots for 8 s), Kitsu shadow swap, Trine whirlwind, Ember
+wall of fire. Tested by script on every hero: every move and key 5 fired with no errors, the launcher
+and the three air hits worked for all eleven, Sable returned 72 soaked damage to four gunners, a
+thrown taxi flew and blew up on landing, Warden's wall cut gunfire damage from 81 to 54 over 4 s.
+
 **Code 7103** (pause menu ▸ Redeem a code): unlimited money (the wallet stays at ◈9,999,999 whatever
 you buy or are fined), unlimited energy, and every hero unlocked. It is saved with your progress and
 can be switched off in the same menu. Being a single-player browser game, the code is in the game's

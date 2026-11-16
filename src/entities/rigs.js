@@ -268,6 +268,29 @@ function M_dark() { return std('#1c2028', 0.45, 0.8); }
 
 const LEG = [0, 0];
 const T = { hipsY: 0, lean: 0, twist: 0, sway: 0, lL: 0, lR: 0, kL: 0, kR: 0, aL: 0, aR: 0, eL: 0, eR: 0, aLz: 0, aRz: 0, headX: 0, headY: 0, headZ: 0 };
+// Attacks with weight. A timed pose (the player's play(anim, secs)) passes its progress in r.phase (0..1);
+// for these poses the first part is a wind-up the other way (the fist drawn back, the leg chambered, the
+// arms raised before a slam), then the blend snaps through the blow, then settles slowly. w: share of the
+// time spent winding up; p: the wind-up pose (only the joints that differ); k: how fast it gets there.
+const WIND = {
+  punchR: { w: 0.3, p: { aR: 0.45, eR: -1.7, twist: 0.45, lean: 0.02 } },
+  punchL: { w: 0.3, p: { aL: 0.45, eL: -1.7, twist: -0.45, lean: 0.02 } },
+  heavy: { w: 0.35, p: { aR: 0.7, eR: -1.9, aL: -0.6, twist: 0.75, lean: -0.12, hipsY: 0.86 } },
+  kick: { w: 0.3, p: { lR: -0.9, kR: 1.7, lean: 0.05 } },
+  slash: { w: 0.3, p: { aR: -2.6, aRz: 0.4, eR: -0.6, twist: -0.55, lean: -0.05 } },
+  slash2: { w: 0.3, p: { aR: -2.4, aRz: -1.2, eR: -0.5, twist: 0.6 } },
+  slam: { w: 0.38, p: { aL: -2.9, aR: -2.9, eL: -0.3, eR: -0.3, lean: -0.3, hipsY: 0.98, lL: -0.1, lR: -0.1, kL: 0.2, kR: 0.2 } },
+  cast: { w: 0.3, p: { aL: 0.3, aR: 0.3, eL: -1.8, eR: -1.8 } },
+  castR: { w: 0.3, p: { aR: 0.3, eR: -1.8, twist: 0.4 } },
+  uppercut: { w: 0.33, p: { aR: 0.1, eR: -1.8, lean: 0.4, hipsY: 0.78, lL: -0.7, kL: 0.9, twist: 0.4 } },
+  roundhouse: { w: 0.3, p: { twist: -0.6, lR: -0.5, kR: 1.3 } },
+  dropkick: { w: 0.3, p: { lL: -1.6, lR: -1.6, kL: 1.9, kR: 1.9, lean: 0.4 } },
+  groundpound: { w: 0.4, p: { aL: -2.9, aR: -2.9, eL: -0.6, eR: -0.6, lean: -0.4, hipsY: 0.98 } },
+  throw: { w: 0.38, p: { aR: 0.6, eR: -1.7, twist: 0.7, lean: -0.2 } },
+  smash: { w: 0.38, p: { aL: -3.0, aR: -3.0, eL: -0.3, eR: -0.3, lean: -0.3, hipsY: 0.98 } },
+  dashstab: { w: 0.3, p: { aR: 0.6, eR: -1.4, lean: -0.1, hipsY: 0.84 } },
+  beam: { w: 0.35, p: { aL: 0.2, aR: 0.2, eL: -1.9, eR: -1.9, lean: -0.15 } },
+};
 export function animateRig(r, dt, anim, speed = 0) {
   r.t += dt;
   const t = r.t, st = r.style;
@@ -400,6 +423,19 @@ export function animateRig(r, dt, anim, speed = 0) {
     }
     case 'zip': T.aL = T.aR = -2.6; T.eL = T.eR = -0.1; T.lean = 0.5; T.lL = -0.4; T.lR = 0.3; T.kL = 0.8; T.kR = 0.5; k = 16; break;
     case 'spin': T.twist = t * 22; T.aLz = 1.4; T.aRz = -1.4; T.eL = T.eR = -0.1; T.lL = -0.3; T.kL = 0.6; k = 40; break;
+    // ---- fighting moves (Hero Mode) ----
+    case 'uppercut': T.aR = -2.7; T.eR = -0.4; T.aRz = -0.1; T.aL = -0.5; T.eL = -1.3; T.twist = -0.6; T.lean = -0.25; T.hipsY = 0.95; T.lL = -0.2; T.kL = 0.2; T.lR = 0.4; T.kR = 0.1; T.headX = -0.3; k = 34; break;
+    case 'roundhouse': T.twist = 1.6; T.lR = -1.45; T.kR = 0.1; T.lL = 0.05; T.kL = 0.25; T.lean = -0.4; T.aLz = 0.9; T.aRz = -0.9; T.eL = T.eR = -0.5; k = 30; break;
+    case 'dropkick': T.lL = T.lR = -1.5; T.kL = T.kR = 0.1; T.lean = -0.8; T.aLz = 1.0; T.aRz = -1.0; T.eL = T.eR = -0.4; T.hipsY = 0.9; k = 30; break;
+    case 'groundpound': T.aL = T.aR = -0.6; T.eL = T.eR = -0.1; T.aLz = 0.1; T.aRz = -0.1; T.lean = 0.9; T.hipsY = 0.6; T.lL = T.lR = -1.2; T.kL = T.kR = 1.7; T.headX = -0.5; k = 34; break;
+    case 'beam': T.aL = T.aR = -1.5; T.eL = T.eR = -0.05; T.aLz = 0.25; T.aRz = -0.25; T.lean = 0.05; T.lL = -0.5; T.kL = 0.5; T.lR = 0.35; T.kR = 0.15; T.hipsY = 0.86; T.headX = 0.05; k = 20; break;
+    case 'throw': T.aR = -1.2; T.eR = -0.1; T.aL = -0.5; T.eL = -0.9; T.twist = -0.7; T.lean = 0.45; T.lL = -0.6; T.kL = 0.5; T.lR = 0.5; T.kR = 0.2; T.hipsY = 0.86; k = 30; break;
+    case 'roar': T.aL = T.aR = 0.35; T.aLz = 0.9; T.aRz = -0.9; T.eL = T.eR = -0.6; T.lean = -0.35; T.headX = -0.6; T.hipsY = 0.86; T.lL = -0.3; T.kL = 0.3; T.lR = 0.3; T.kR = 0.2; k = 18; break;
+    case 'smash': T.aL = T.aR = -0.9; T.eL = T.eR = -0.1; T.aLz = 0.05; T.aRz = -0.05; T.lean = 0.85; T.hipsY = 0.72; T.lL = -0.9; T.kL = 1.2; T.lR = 0.5; T.kR = 0.6; T.headX = -0.4; k = 36; break;
+    case 'dashstab': T.aR = -1.6; T.eR = 0; T.aRz = -0.05; T.aL = 0.4; T.eL = -0.4; T.lean = 0.6; T.twist = -0.6; T.lL = -1.1; T.kL = 0.9; T.lR = 0.9; T.kR = 0.1; T.hipsY = 0.76; k = 40; break;
+    case 'spinkick': T.twist = t * 20; T.lR = -1.3; T.kR = 0.1; T.lL = 0.1; T.kL = 0.3; T.aLz = 1.2; T.aRz = -1.2; T.eL = T.eR = -0.3; T.lean = -0.2; k = 40; break;
+    case 'backflip': T.lL = T.lR = -1.6; T.kL = T.kR = 2.0; T.aL = T.aR = -1.2; T.eL = T.eR = -1.4; T.lean = 0.9; T.headX = 0.3; k = 24; break;
+    case 'transform': T.aL = T.aR = -2.4; T.aLz = 0.7; T.aRz = -0.7; T.eL = T.eR = -0.2; T.lean = -0.35; T.headX = -0.7; T.hipsY = 0.98; T.lL = 0.1; T.lR = 0.1; T.kL = T.kR = 0.05; k = 6; break;
     case 'hurt': T.lean = -0.4; T.headX = -0.35; T.aLz = 0.8; T.aRz = -0.8; T.eL = T.eR = -0.6; T.lL = 0.2; T.kR = 0.4; T.hipsY = 0.88; k = 30; break;
     case 'flex': T.aL = T.aR = -0.2; T.aLz = 1.3; T.aRz = -1.3; T.eL = T.eR = -1.9; T.lean = -0.08; T.lL = -0.25; T.lR = 0.25; T.hipsY = 0.9; k = 12; break;
     default: {
@@ -414,6 +450,14 @@ export function animateRig(r, dt, anim, speed = 0) {
       else if (v === 6) { T.aL = T.aR = -0.42; T.aLz = -0.3; T.aRz = 0.3; T.eL = T.eR = -1.7; T.sway = 0.03; } // arms folded
       k = 4;
     }
+  }
+  // a timed attack: wind-up, snap through the blow, slow settle (see WIND)
+  const W = WIND[anim];
+  if (W && r.phase >= 0) {
+    const u = r.phase, w = W.w;
+    if (u < w) { for (const key in W.p) T[key] = W.p[key]; k = W.k || 22; }
+    else if (u < w + 0.18) k = Math.max(k, 55);
+    else k = Math.min(k, 14);
   }
   // someone with a phone looks at it now and then, walking or standing
   if (r.prop === 'phone' && (anim === 'walk' || k === 4) && ((Math.floor(t / 8 + r.seed * 30) & 3) < 2)) { T.aR = -0.9; T.eR = -1.5; T.aRz = 0.14; T.headX = 0.28; T.headY *= 0.3; }

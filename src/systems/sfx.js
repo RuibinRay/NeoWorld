@@ -45,6 +45,7 @@ export class Sfx {
   }
   // a hero move: a sound of its own for each hero and each slot
   move(id, slot) {
+    if (slot === 'p5' && MOVES[id] && !MOVES[id].p5) MOVES[id].p5 = FIVE_SFX[id];
     const m = MOVES[id] && MOVES[id][slot]; if (!m || !this.ok) return;
     for (const [name, delay = 0, v = 1] of m) { if (delay) setTimeout(() => this.play(name, null, v), delay * 1000); else this.play(name, null, v); }
   }
@@ -68,6 +69,8 @@ export class Sfx {
 }
 
 // ---- the sounds -----------------------------------------------------------------------------------------
+// key 5 (added with the launcher combos)
+const FIVE_SFX = {"strand":[["thwip"],["splat",0.25]],"forge":[["power"],["repulsor",0.2]],"raiko":[["zap"],["bolt",0.1]],"sable":[["shield"]],"rook":[["boing"]],"brann":[["whoosh"],["zap",0.38]],"bulwark":[["slam"],["whoosh",0.42]],"warden":[["shield"]],"kitsu":[["poof"],["shing",0.06]],"trine":[["whirl"],["shing",0.3]],"ember":[["fire"],["fireball",0.1]]};
 const SOUNDS = {
   swish: (s, o) => s.n(o, 0, 0.14, 0.12, 2600, 'bandpass', 1.2, 0.35, 0.02),
   whoosh: (s, o) => s.n(o, 0, 0.45, 0.16, 500, 'bandpass', 0.9, 3, 0.12),

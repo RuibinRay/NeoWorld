@@ -66,6 +66,8 @@ class Foe {
     if (this.flying) this.vel.y = (this.vel.y || 0) + (o.up || 0) * 0.5;
     if (o.stun) { this.stun = Math.max(this.stun, o.stun); this.wind = null; if (o.kind === 'web') this.wrap(); }
     if (o.kind === 'fire') this.burn = Math.max(this.burn, 2.5);
+    // how it takes the blow: a stagger for a solid hit, flat on its back for a huge one (not the big ones, not drones)
+    if (!this.big && !this.flying && !this.dummy) { if (dmg >= 34 && !o.pull) this.downT = Math.max(this.downT || 0, 1.1); else if (dmg >= 12) this.stagger = Math.max(this.stagger || 0, Math.min(0.42, 0.12 + dmg / 110)); }
     if (this.state !== 'fight') this.state = 'fight';
     if (this.hp <= 0) this.die(dir);
   }
@@ -110,7 +112,9 @@ class Foe {
     if (this.flying) { this.vel.y = (this.vel.y || 0) * Math.exp(-3 * dt); }
     let mx = 0, mz = 0, sp = 0; this.anim = 'idle';
     if (this.burn > 0) { this.burn -= dt; this.hp -= 7 * dt; if (Math.random() < dt * 14) G.fx.fire(V().set(this.pos.x, this.pos.y + 0.5 + Math.random() * 1.2, this.pos.z), 1, 0.6); if (this.hp <= 0) return this.die(null); }
-    if (this.stun > 0) { this.stun -= dt; this.anim = 'hurt'; this.wind = null; if (this.stun <= 0 && this.cocoon) this.cocoon.visible = false; }
+    if (this.downT > 0 && this.air <= 0.1) { this.downT -= dt; this.anim = this.downT > 0.35 ? 'down' : 'land'; this.wind = null; }   // knocked flat, then up again
+    else if (this.stun > 0) { this.stun -= dt; this.anim = 'hurt'; this.wind = null; if (this.stun <= 0 && this.cocoon) this.cocoon.visible = false; }
+    else if (this.stagger > 0) { this.stagger -= dt; this.anim = 'hurt'; this.wind = null; }
     else if (this.wind) { // a telegraphed attack: wind up, then hit
       const w = this.wind; w.t -= dt; this.anim = w.anim; this.yaw = dampAngle(this.yaw, toYaw, 6, dt);
       if (this.kind === 'vcore' && this.aimAt) G.fx.beam(this.pos.clone(), this.aimAt, '#ff2a4f', 0.03, 0.05);
